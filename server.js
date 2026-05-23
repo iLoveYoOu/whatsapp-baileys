@@ -95,7 +95,10 @@ function authSheets() {
 }
 
 async function garantirAba(sheets, aba) {
-  const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId: SPREADSHEET_ID
+  });
+
   const existe = meta.data.sheets.some(s => s.properties.title === aba);
 
   if (!existe) {
@@ -104,7 +107,10 @@ async function garantirAba(sheets, aba) {
 }
 
 async function ocultarColunaH(sheets, aba) {
-  const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId: SPREADSHEET_ID
+  });
+
   const sheetInfo = meta.data.sheets.find(s => s.properties.title === aba);
 
   if (!sheetInfo) return;
@@ -126,6 +132,16 @@ async function ocultarColunaH(sheets, aba) {
       }]
     }
   });
+}
+
+async function proximaLinhaColunaB(sheets, aba) {
+  const resp = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `'${aba}'!B2:B`
+  });
+
+  const rows = resp.data.values || [];
+  return rows.length + 2;
 }
 
 async function salvarNaPlanilha({ texto, messageId }) {
@@ -152,11 +168,12 @@ async function salvarNaPlanilha({ texto, messageId }) {
 
     const idFinal = `${messageId || 'semid'}_${i}_${Date.now()}_${Math.floor(Math.random() * 999999)}`;
 
-    await sheets.spreadsheets.values.append({
+    const linha = await proximaLinhaColunaB(sheets, aba);
+
+    await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `'${aba}'!B2:H2`,
+      range: `'${aba}'!B${linha}:H${linha}`,
       valueInputOption: 'USER_ENTERED',
-      insertDataOption: 'INSERT_ROWS',
       requestBody: {
         values: [[
           deposito,
@@ -173,6 +190,7 @@ async function salvarNaPlanilha({ texto, messageId }) {
     salvos++;
 
     console.log('SALVO NOVA LINHA:', {
+      linha,
       deposito,
       sacado,
       casa,
@@ -194,7 +212,10 @@ async function apagarDaPlanilha(messageId) {
 
   await garantirAba(sheets, aba);
 
-  const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId: SPREADSHEET_ID
+  });
+
   const sheetInfo = meta.data.sheets.find(s => s.properties.title === aba);
 
   if (!sheetInfo) return false;
@@ -295,7 +316,10 @@ async function conectarWhatsApp() {
 
         if (!texto) continue;
 
-        const salvos = await salvarNaPlanilha({ texto, messageId });
+        const salvos = await salvarNaPlanilha({
+          texto,
+          messageId
+        });
 
         console.log(`Mensagem processada. Linhas salvas: ${salvos}`);
       } catch (err) {

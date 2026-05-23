@@ -14,7 +14,6 @@ const {
 } = require('@whiskeysockets/baileys');
 
 const app = express();
-
 app.use(express.json({ limit: '20mb' }));
 
 const PORT = process.env.PORT || 3000;
@@ -25,59 +24,19 @@ let qrAtual = '';
 let status = 'iniciando';
 
 const lucroTabela = {
-  300: 60,
-  350: 60,
-  400: 60,
-  450: 60,
-  500: 60,
-  550: 70,
-  600: 80,
-  650: 90,
-  700: 90,
-  750: 100,
-  800: 100,
-  850: 110,
-  900: 110,
-  950: 120,
-  1000: 120,
-  1050: 125,
-  1100: 130,
-  1150: 135,
-  1200: 140,
-  1250: 145,
-  1300: 150,
-  1350: 155,
-  1400: 160,
-  1450: 165,
-  1500: 170,
-  1600: 190,
-  1650: 195,
-  1700: 200,
-  1750: 205,
-  1800: 210,
-  1850: 215,
-  1900: 220,
-  1950: 225,
-  2000: 240,
-  2050: 245,
-  2100: 250,
-  2150: 255,
-  2200: 260,
-  2250: 265,
-  2300: 270,
-  2350: 275,
-  2400: 280,
-  2450: 285,
-  2500: 290,
-  2600: 310,
-  2650: 315,
-  2700: 320,
-  2750: 325,
-  2800: 330,
-  2850: 335,
-  2900: 340,
-  2950: 345,
-  3000: 360
+  300: 60, 350: 60, 400: 60, 450: 60, 500: 60,
+  550: 70, 600: 80, 650: 90, 700: 90, 750: 100,
+  800: 100, 850: 110, 900: 110, 950: 120, 1000: 120,
+  1050: 125, 1100: 130, 1150: 135, 1200: 140,
+  1250: 145, 1300: 150, 1350: 155, 1400: 160,
+  1450: 165, 1500: 170, 1600: 190, 1650: 195,
+  1700: 200, 1750: 205, 1800: 210, 1850: 215,
+  1900: 220, 1950: 225, 2000: 240, 2050: 245,
+  2100: 250, 2150: 255, 2200: 260, 2250: 265,
+  2300: 270, 2350: 275, 2400: 280, 2450: 285,
+  2500: 290, 2600: 310, 2650: 315, 2700: 320,
+  2750: 325, 2800: 330, 2850: 335, 2900: 340,
+  2950: 345, 3000: 360
 };
 
 function hojeBR() {
@@ -132,20 +91,12 @@ function authSheets() {
     scopes: ['https://www.googleapis.com/auth/spreadsheets']
   });
 
-  return google.sheets({
-    version: 'v4',
-    auth
-  });
+  return google.sheets({ version: 'v4', auth });
 }
 
 async function garantirAba(sheets, aba) {
-  const meta = await sheets.spreadsheets.get({
-    spreadsheetId: SPREADSHEET_ID
-  });
-
-  const existe = meta.data.sheets.some(
-    s => s.properties.title === aba
-  );
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+  const existe = meta.data.sheets.some(s => s.properties.title === aba);
 
   if (!existe) {
     throw new Error(`Aba não encontrada: ${aba}`);
@@ -153,76 +104,54 @@ async function garantirAba(sheets, aba) {
 }
 
 async function ocultarColunaH(sheets, aba) {
-  const meta = await sheets.spreadsheets.get({
-    spreadsheetId: SPREADSHEET_ID
-  });
-
-  const sheetInfo = meta.data.sheets.find(
-    s => s.properties.title === aba
-  );
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+  const sheetInfo = meta.data.sheets.find(s => s.properties.title === aba);
 
   if (!sheetInfo) return;
 
   await sheets.spreadsheets.batchUpdate({
     spreadsheetId: SPREADSHEET_ID,
     requestBody: {
-      requests: [
-        {
-          updateDimensionProperties: {
-            range: {
-              sheetId: sheetInfo.properties.sheetId,
-              dimension: 'COLUMNS',
-              startIndex: 7,
-              endIndex: 8
-            },
-            properties: {
-              hiddenByUser: true
-            },
-            fields: 'hiddenByUser'
-          }
+      requests: [{
+        updateDimensionProperties: {
+          range: {
+            sheetId: sheetInfo.properties.sheetId,
+            dimension: 'COLUMNS',
+            startIndex: 7,
+            endIndex: 8
+          },
+          properties: { hiddenByUser: true },
+          fields: 'hiddenByUser'
         }
-      ]
+      }]
     }
   });
 }
 
 async function salvarNaPlanilha({ texto, messageId }) {
   const sheets = authSheets();
-
   const aba = hojeBR();
 
   await garantirAba(sheets, aba);
   await ocultarColunaH(sheets, aba);
 
   const blocos = dividirBlocos(texto);
-
   let salvos = 0;
 
   for (let i = 0; i < blocos.length; i++) {
     const bloco = blocos[i];
 
-    const deposito = Number(
-      extrair(bloco, /dep\s*:\s*(\d+)/i)
-    );
-
-    const sacado = Number(
-      extrair(bloco, /ret\s*:\s*(\d+)/i)
-    );
-
-    const casa = extrair(
-      bloco,
-      /plat\s*:\s*(.+)/i
-    );
+    const deposito = Number(extrair(bloco, /dep\s*:\s*(\d+)/i));
+    const sacado = Number(extrair(bloco, /ret\s*:\s*(\d+)/i));
+    const casa = extrair(bloco, /plat\s*:\s*(.+)/i);
 
     if (!deposito || !sacado || !casa) continue;
 
     const lucro = lucroTabela[deposito] || 0;
-
     const banca = deposito - lucro;
 
-    const idFinal = `${messageId || 'semid'}_${i}_${Date.now()}`;
+    const idFinal = `${messageId || 'semid'}_${i}_${Date.now()}_${Math.floor(Math.random() * 999999)}`;
 
-    // SEMPRE CRIA NOVA LINHA
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
       range: `'${aba}'!B2:H2`,
@@ -243,7 +172,7 @@ async function salvarNaPlanilha({ texto, messageId }) {
 
     salvos++;
 
-    console.log('SALVO:', {
+    console.log('SALVO NOVA LINHA:', {
       deposito,
       sacado,
       casa,
@@ -261,18 +190,12 @@ async function apagarDaPlanilha(messageId) {
   if (!messageId) return false;
 
   const sheets = authSheets();
-
   const aba = hojeBR();
 
   await garantirAba(sheets, aba);
 
-  const meta = await sheets.spreadsheets.get({
-    spreadsheetId: SPREADSHEET_ID
-  });
-
-  const sheetInfo = meta.data.sheets.find(
-    s => s.properties.title === aba
-  );
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+  const sheetInfo = meta.data.sheets.find(s => s.properties.title === aba);
 
   if (!sheetInfo) return false;
 
@@ -282,7 +205,6 @@ async function apagarDaPlanilha(messageId) {
   });
 
   const rows = resp.data.values || [];
-
   const linhas = [];
 
   for (let i = 0; i < rows.length; i++) {
@@ -299,18 +221,16 @@ async function apagarDaPlanilha(messageId) {
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
       requestBody: {
-        requests: [
-          {
-            deleteDimension: {
-              range: {
-                sheetId: sheetInfo.properties.sheetId,
-                dimension: 'ROWS',
-                startIndex: linha - 1,
-                endIndex: linha
-              }
+        requests: [{
+          deleteDimension: {
+            range: {
+              sheetId: sheetInfo.properties.sheetId,
+              dimension: 'ROWS',
+              startIndex: linha - 1,
+              endIndex: linha
             }
           }
-        ]
+        }]
       }
     });
   }
@@ -319,33 +239,29 @@ async function apagarDaPlanilha(messageId) {
 }
 
 async function conectarWhatsApp() {
-  const { state, saveCreds } =
-    await useMultiFileAuthState('./auth');
-
-  const { version } =
-    await fetchLatestBaileysVersion();
+  const { state, saveCreds } = await useMultiFileAuthState('./auth');
+  const { version } = await fetchLatestBaileysVersion();
 
   sock = makeWASocket({
     version,
     auth: state,
     logger: pino({ level: 'silent' }),
     printQRInTerminal: false,
-    browser: ['Sheets Bot', 'Chrome', '1.0']
+    browser: ['Sheets Bot', 'Chrome', '1.0'],
+    markOnlineOnConnect: false,
+    syncFullHistory: false,
+    keepAliveIntervalMs: 30000
   });
 
   sock.ev.on('creds.update', saveCreds);
 
   sock.ev.on('connection.update', async (update) => {
-    const {
-      connection,
-      lastDisconnect,
-      qr
-    } = update;
+    const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
       qrAtual = qr;
       status = 'aguardando_qr';
-      console.log('QR disponível');
+      console.log('QR disponível em /qr');
     }
 
     if (connection === 'open') {
@@ -356,17 +272,14 @@ async function conectarWhatsApp() {
 
     if (connection === 'close') {
       const shouldReconnect =
-        lastDisconnect?.error?.output?.statusCode !==
-        DisconnectReason.loggedOut;
+        lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
 
-      status = shouldReconnect
-        ? 'reconectando'
-        : 'deslogado';
+      status = shouldReconnect ? 'reconectando' : 'deslogado';
 
-      console.log('Reconectar:', shouldReconnect);
+      console.log('Conexão fechada. Reconectar:', shouldReconnect);
 
       if (shouldReconnect) {
-        conectarWhatsApp();
+        setTimeout(() => conectarWhatsApp(), 5000);
       }
     }
   });
@@ -375,28 +288,18 @@ async function conectarWhatsApp() {
     for (const msg of messages) {
       try {
         if (!msg.message) continue;
-
         if (msg.key.fromMe) continue;
 
         const texto = textoDaMensagem(msg.message);
-
         const messageId = msg.key.id || '';
 
         if (!texto) continue;
 
-        const salvos = await salvarNaPlanilha({
-          texto,
-          messageId
-        });
+        const salvos = await salvarNaPlanilha({ texto, messageId });
 
-        console.log(
-          `Mensagem processada. ${salvos} linhas salvas`
-        );
+        console.log(`Mensagem processada. Linhas salvas: ${salvos}`);
       } catch (err) {
-        console.error(
-          'Erro ao processar mensagem:',
-          err
-        );
+        console.error('Erro ao processar mensagem:', err);
       }
     }
   });
@@ -406,23 +309,12 @@ async function conectarWhatsApp() {
       try {
         const id = update.key?.id;
 
-        if (
-          update.update?.message === null ||
-          update.update?.messageStubType
-        ) {
+        if (update.update?.message === null || update.update?.messageStubType) {
           const ok = await apagarDaPlanilha(id);
-
-          console.log(
-            'Mensagem apagada:',
-            id,
-            ok
-          );
+          console.log('Mensagem apagada:', id, ok);
         }
       } catch (err) {
-        console.error(
-          'Erro em messages.update:',
-          err
-        );
+        console.error('Erro em messages.update:', err);
       }
     }
   });
@@ -447,20 +339,20 @@ app.get('/qr', async (req, res) => {
   if (!qrAtual) {
     return res.send(`
       <h3>Status: ${status}</h3>
-      <p>Nenhum QR disponível</p>
+      <p>Nenhum QR disponível. Atualize em alguns segundos.</p>
     `);
   }
 
   const img = await QRCode.toDataURL(qrAtual);
 
   res.send(`
-    <h2>Escaneie o QR</h2>
+    <h2>Escaneie no WhatsApp</h2>
     <img src="${img}" style="width:320px;height:320px" />
+    <p>WhatsApp → Aparelhos conectados → Conectar aparelho</p>
   `);
 });
 
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
-
   conectarWhatsApp();
 });

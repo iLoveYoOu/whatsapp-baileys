@@ -202,12 +202,12 @@ async function proximaLinhaColunaB(sheets, aba) {
     const colunaB = String(rows[i][1] || '')
       .trim();
 
-    // PARA ao encontrar TOTAL
+    // PARA quando encontrar TOTAL
     if (colunaA.includes('total')) {
       break;
     }
 
-    // PRIMEIRA LINHA VAZIA DA COLUNA B
+    // PRIMEIRA linha vazia da coluna B
     if (!colunaB) {
       return i + 2;
     }
@@ -472,6 +472,18 @@ async function conectarWhatsApp() {
     }
   });
 }
+
+/* ===========================
+   PING PARA UPTIMEROBOT
+=========================== */
+
+app.get('/ping', (req, res) => {
+  res.status(200).send('pong');
+});
+
+/* ===========================
+   ROTAS
+=========================== */
 
 app.get('/', (req, res) => {
   res.send(`

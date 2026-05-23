@@ -1,0 +1,21 @@
+{
+  "name": "whatsapp-baileys-sheets",
+  "version": "1.0.0",
+  "description": "WhatsApp Baileys gratuito integrado ao Google Sheets",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "latest",
+    "@hapi/boom": "latest",
+    "express": "latest",
+    "qrcode": "latest",
+    "googleapis": "latest",
+    "pino": "latest",
+    "dotenv": "latest"
+  }
+}

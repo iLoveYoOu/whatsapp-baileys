@@ -225,7 +225,7 @@ async function salvarNaPlanilha({ texto, messageId }) {
     // SEMPRE CRIA NOVA LINHA
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: `'${aba}'!B:H`,
+      range: `'${aba}'!B2:H2`,
       valueInputOption: 'USER_ENTERED',
       insertDataOption: 'INSERT_ROWS',
       requestBody: {

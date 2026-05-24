@@ -14,7 +14,6 @@ const {
 } = require('@whiskeysockets/baileys');
 
 const app = express();
-
 app.use(express.json({ limit: '20mb' }));
 
 const PORT = process.env.PORT || 3000;
@@ -92,7 +91,7 @@ const lucroTabela = {
   3000: 360
 };
 
-/* CALCULAR FAIXA */
+/* CALCULAR LUCRO POR FAIXA */
 function calcularLucro(deposito) {
   const valores = Object.keys(lucroTabela)
     .map(Number)
@@ -240,21 +239,17 @@ async function proximaLinhaColunaB(sheets, aba) {
     }
   }
 
-  throw new Error(
-    'Não encontrei linha vazia antes do TOTAL.'
-  );
+  throw new Error('Não encontrei linha vazia antes do TOTAL.');
 }
 
 async function salvarNaPlanilha({ texto, messageId }) {
   const sheets = authSheets();
-
   const aba = hojeBR();
 
   await garantirAba(sheets, aba);
   await ocultarColunaH(sheets, aba);
 
   const blocos = dividirBlocos(texto);
-
   let salvos = 0;
 
   for (let i = 0; i < blocos.length; i++) {
@@ -289,10 +284,7 @@ async function salvarNaPlanilha({ texto, messageId }) {
     const idFinal =
       `${messageId || 'semid'}_${i}_${Date.now()}_${Math.floor(Math.random() * 999999)}`;
 
-    const linha = await proximaLinhaColunaB(
-      sheets,
-      aba
-    );
+    const linha = await proximaLinhaColunaB(sheets, aba);
 
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
@@ -332,7 +324,6 @@ async function apagarDaPlanilha(messageId) {
   if (!messageId) return false;
 
   const sheets = authSheets();
-
   const aba = hojeBR();
 
   await garantirAba(sheets, aba);
@@ -353,7 +344,6 @@ async function apagarDaPlanilha(messageId) {
   });
 
   const rows = resp.data.values || [];
-
   const linhas = [];
 
   for (let i = 0; i < rows.length; i++) {
@@ -419,14 +409,12 @@ async function conectarWhatsApp() {
     if (qr) {
       qrAtual = qr;
       status = 'aguardando_qr';
-
       console.log('QR disponível em /qr');
     }
 
     if (connection === 'open') {
       status = 'conectado';
       qrAtual = '';
-
       console.log('WhatsApp conectado');
     }
 
@@ -454,11 +442,9 @@ async function conectarWhatsApp() {
     for (const msg of messages) {
       try {
         if (!msg.message) continue;
-
         if (msg.key.fromMe) continue;
 
         const texto = textoDaMensagem(msg.message);
-
         const messageId = msg.key.id || '';
 
         if (!texto) continue;
@@ -483,41 +469,6 @@ async function conectarWhatsApp() {
   });
 
   sock.ev.on('messages.update', async (updates) => {
-  for (const update of updates) {
-    try {
-      const id = update.key?.id;
-
-      if (
-        update.update?.message === null ||
-        update.update?.messageStubType
-      ) {
-        const ok = await entrarNaFila(() =>
-          apagarDaPlanilha(id)
-        );
-
-        console.log('Mensagem apagada:', id, ok);
-        continue;
-      }
-
-      const textoEditado = textoDaMensagem(update.update?.message);
-
-      if (textoEditado && id) {
-        await entrarNaFila(async () => {
-          await apagarDaPlanilha(id);
-
-          const salvos = await salvarNaPlanilha({
-            texto: textoEditado,
-            messageId: id
-          });
-
-          console.log('Mensagem editada atualizada:', id, salvos);
-        });
-      }
-    } catch (err) {
-      console.error('Erro em messages.update:', err);
-    }
-  }
-});
     for (const update of updates) {
       try {
         const id = update.key?.id;
@@ -530,17 +481,30 @@ async function conectarWhatsApp() {
             apagarDaPlanilha(id)
           );
 
-          console.log(
-            'Mensagem apagada:',
-            id,
-            ok
-          );
+          console.log('Mensagem apagada:', id, ok);
+          continue;
+        }
+
+        const textoEditado = textoDaMensagem(update.update?.message);
+
+        if (textoEditado && id) {
+          await entrarNaFila(async () => {
+            await apagarDaPlanilha(id);
+
+            const salvos = await salvarNaPlanilha({
+              texto: textoEditado,
+              messageId: id
+            });
+
+            console.log(
+              'Mensagem editada atualizada:',
+              id,
+              salvos
+            );
+          });
         }
       } catch (err) {
-        console.error(
-          'Erro em messages.update:',
-          err
-        );
+        console.error('Erro em messages.update:', err);
       }
     }
   });
@@ -583,6 +547,5 @@ app.get('/qr', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
-
   conectarWhatsApp();
 });

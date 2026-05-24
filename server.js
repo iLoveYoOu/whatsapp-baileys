@@ -483,6 +483,41 @@ async function conectarWhatsApp() {
   });
 
   sock.ev.on('messages.update', async (updates) => {
+  for (const update of updates) {
+    try {
+      const id = update.key?.id;
+
+      if (
+        update.update?.message === null ||
+        update.update?.messageStubType
+      ) {
+        const ok = await entrarNaFila(() =>
+          apagarDaPlanilha(id)
+        );
+
+        console.log('Mensagem apagada:', id, ok);
+        continue;
+      }
+
+      const textoEditado = textoDaMensagem(update.update?.message);
+
+      if (textoEditado && id) {
+        await entrarNaFila(async () => {
+          await apagarDaPlanilha(id);
+
+          const salvos = await salvarNaPlanilha({
+            texto: textoEditado,
+            messageId: id
+          });
+
+          console.log('Mensagem editada atualizada:', id, salvos);
+        });
+      }
+    } catch (err) {
+      console.error('Erro em messages.update:', err);
+    }
+  }
+});
     for (const update of updates) {
       try {
         const id = update.key?.id;

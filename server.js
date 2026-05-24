@@ -14,6 +14,7 @@ const {
 } = require('@whiskeysockets/baileys');
 
 const app = express();
+
 app.use(express.json({ limit: '20mb' }));
 
 const PORT = process.env.PORT || 3000;
@@ -277,7 +278,13 @@ async function salvarNaPlanilha({ texto, messageId }) {
     /* NOVA REGRA DE FAIXA */
     const lucro = calcularLucro(deposito);
 
-    const banca = deposito - lucro;
+    const faixaBase =
+      Math.floor((deposito - 500) / 50) * 50 + 500;
+
+    const banca =
+      faixaBase > 0
+        ? faixaBase - lucro
+        : deposito - lucro;
 
     const idFinal =
       `${messageId || 'semid'}_${i}_${Date.now()}_${Math.floor(Math.random() * 999999)}`;

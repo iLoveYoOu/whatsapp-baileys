@@ -455,11 +455,15 @@ async function salvarNaPlanilha({ texto, messageId }) {
   for (let i = 0; i < blocos.length; i++) {
     const bloco = blocos[i];
 
-    const deposito = Number(extrair(bloco, /dep\s*:\s*(\d+)/i));
-    const sacado = Number(extrair(bloco, /ret\s*:\s*(\d+)/i));
+    const depositoTxt = extrair(bloco, /dep\s*:\s*(\d+)/i);
+    const sacadoTxt = extrair(bloco, /ret\s*:\s*(\d+)/i);
     const casa = extrair(bloco, /plat\s*:\s*(.+)/i);
 
-    if (!deposito || !sacado || !casa) continue;
+    const deposito = Number(depositoTxt);
+    const sacado = Number(sacadoTxt);
+
+    if (depositoTxt === '' || sacadoTxt === '' || !casa) continue;
+    if (Number.isNaN(deposito) || Number.isNaN(sacado)) continue;
 
     const lucro = calcularLucro(deposito);
 
@@ -819,10 +823,11 @@ Valor: R$ ${valor.toFixed(2).replace('.', ',')}
 
     if (pix.qr_code) {
       await sock.sendMessage(remetente, {
-        text:
-`📋 PIX COPIA E COLA:
+        text: '📋 PIX COPIA E COLA:'
+      });
 
-${pix.qr_code}`
+      await sock.sendMessage(remetente, {
+        text: pix.qr_code
       });
     }
 

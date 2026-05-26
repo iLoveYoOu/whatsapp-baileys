@@ -136,25 +136,59 @@ async function gerarPixMercadoPago(valor, descricao) {
     throw new Error('MERCADO_PAGO_ACCESS_TOKEN não configurado no Render.');
   }
 
-  const idempotencyKey = `${Date.now()}-${Math.random()}`;
+  const valorFormatado = Number(valor).toFixed(2);
+  const externalReference = `banca_${Date.now()}_${Math.floor(Math.random() * 999999)}`;
 
-  const resp = await fetch('https://api.mercadopago.com/v1/payments', {
+  const resp = await fetch('https://api.mercadopago.com/v1/orders', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${MP_TOKEN}`,
       'Content-Type': 'application/json',
-      'X-Idempotency-Key': idempotencyKey
+      Accept: 'application/json',
+      'X-Idempotency-Key': externalReference
     },
     body: JSON.stringify({
-      transaction_amount: Number(valor),
-      description: descricao || 'Banca Meia do Lucão',
-      payment_method_id: 'pix',
+      type: 'online',
+      total_amount: valorFormatado,
+      external_reference: externalReference,
+      processing_mode: 'automatic',
+      transactions: {
+        payments: [
+          {
+            amount: valorFormatado,
+            payment_method: {
+              id: 'pix',
+              type: 'bank_transfer'
+            }
+          }
+        ]
+      },
       payer: {
         email: `cliente${Date.now()}@email.com`
       }
     })
   });
 
+  const data = await resp.json();
+
+  if (!resp.ok) {
+    console.error('Erro Mercado Pago Orders:', data);
+    throw new Error(data?.message || 'Erro ao gerar Pix Mercado Pago Orders.');
+  }
+
+  const payment = data.transactions?.payments?.[0] || {};
+  const method = payment.payment_method || {};
+
+  return {
+    id: data.id,
+    payment_id: payment.id || '',
+    status: data.status,
+    status_detail: data.status_detail,
+    qr_code: method.qr_code || '',
+    qr_code_base64: method.qr_code_base64 || '',
+    ticket_url: method.ticket_url || ''
+  };
+}
   const data = await resp.json();
 
   if (!resp.ok) {
@@ -170,24 +204,28 @@ async function gerarPixMercadoPago(valor, descricao) {
   };
 }
 
-async function consultarPagamentoMercadoPago(paymentId) {
-  const resp = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+async function consultarPagamentoMercadoPago(orderId) {
+  if (!MP_TOKEN) {
+    throw new Error('MERCADO_PAGO_ACCESS_TOKEN não configurado no Render.');
+  }
+
+  const resp = await fetch(`https://api.mercadopago.com/v1/orders/${orderId}`, {
     method: 'GET',
     headers: {
-      Authorization: `Bearer ${MP_TOKEN}`
+      Authorization: `Bearer ${MP_TOKEN}`,
+      Accept: 'application/json'
     }
   });
 
   const data = await resp.json();
 
   if (!resp.ok) {
-    console.error('Erro ao consultar pagamento:', data);
+    console.error('Erro ao consultar order:', data);
     return null;
   }
 
   return data;
 }
-
 async function liberarBancaParaOperador(banca) {
   if (!operadoresOnline.length) {
     bancasPagasPendentes.push(banca);

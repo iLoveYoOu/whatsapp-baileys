@@ -19,6 +19,7 @@ app.use(express.json({ limit: '20mb' }));
 
 const PORT = process.env.PORT || 3000;
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+const MP_TOKEN = process.env.MERCADO_PAGO_ACCESS_TOKEN;
 
 let sock = null;
 let qrAtual = '';
@@ -38,18 +39,38 @@ function entrarNaFila(tarefa) {
 /* FILA DE OPERADORES */
 let operadoresOnline = [];
 let indiceOperador = 0;
-let totalLeadsEnviados = 0;
+let totalBancasEnviadas = 0;
+let totalPixGerados = 0;
+let totalPixPagos = 0;
 
-const leadsPorMensagemOriginal = new Map();
-const leadsPorMensagemOperador = new Map();
+const bancasPorMensagemOriginal = new Map();
+const bancasPorMensagemOperador = new Map();
+const pagamentosPendentes = new Map();
+const bancasPagasPendentes = [];
+
+/* MENSAGEM PÓS-PAGAMENTO */
+const MSG_DEPOSITO_CONFIRMADO =
+`✅ DEU CERTO! DEPÓSITO CONFIRMADO!
+
+⚠️ ATENÇÃO - MUITO IMPORTANTE!
+
+Meu número de atendimento pode cair a qualquer momento!
+
+Se a mensagem NÃO CHEGAR, não fique sem resposta!
+
+📞 CHAMA DIRETO NO NÚMERO RESERVA:
+48 98425-5049
+
+🕘 Horário de atendimento:
+Todos os dias das 09:00 às 00:30
+
+🙏 Obrigado pela confiança!
+
+Att: Equipe Meia do Lucão`;
 
 function operadorNome(jid) {
   const index = operadoresOnline.indexOf(jid);
   return index >= 0 ? `Operador ${index + 1}` : 'Operador';
-}
-
-function normalizarNumero(txt) {
-  return String(txt || '').replace(/\D/g, '');
 }
 
 function isComandoValor(texto) {
@@ -109,7 +130,162 @@ async function baixarImagem(message) {
   return buffer;
 }
 
-/* TABELA BASE */
+/* MERCADO PAGO PIX */
+async function gerarPixMercadoPago(valor, descricao) {
+  if (!MP_TOKEN) {
+    throw new Error('MERCADO_PAGO_ACCESS_TOKEN não configurado no Render.');
+  }
+
+  const idempotencyKey = `${Date.now()}-${Math.random()}`;
+
+  const resp = await fetch('https://api.mercadopago.com/v1/payments', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${MP_TOKEN}`,
+      'Content-Type': 'application/json',
+      'X-Idempotency-Key': idempotencyKey
+    },
+    body: JSON.stringify({
+      transaction_amount: Number(valor),
+      description: descricao || 'Banca Meia do Lucão',
+      payment_method_id: 'pix',
+      payer: {
+        email: `cliente${Date.now()}@email.com`
+      }
+    })
+  });
+
+  const data = await resp.json();
+
+  if (!resp.ok) {
+    console.error('Erro Mercado Pago:', data);
+    throw new Error(data?.message || 'Erro ao gerar Pix Mercado Pago.');
+  }
+
+  return {
+    id: data.id,
+    status: data.status,
+    qr_code: data.point_of_interaction?.transaction_data?.qr_code || '',
+    qr_code_base64: data.point_of_interaction?.transaction_data?.qr_code_base64 || ''
+  };
+}
+
+async function consultarPagamentoMercadoPago(paymentId) {
+  const resp = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${MP_TOKEN}`
+    }
+  });
+
+  const data = await resp.json();
+
+  if (!resp.ok) {
+    console.error('Erro ao consultar pagamento:', data);
+    return null;
+  }
+
+  return data;
+}
+
+async function liberarBancaParaOperador(banca) {
+  if (!operadoresOnline.length) {
+    bancasPagasPendentes.push(banca);
+
+    await sock.sendMessage(banca.clienteJid, {
+      text: '✅ Pagamento aprovado.\n⚠️ Nenhum operador online no momento. Sua banca ficará aguardando atendimento.'
+    });
+
+    return {
+      ok: false,
+      pendente: true
+    };
+  }
+
+  const operador = operadoresOnline[indiceOperador];
+  const nomeOperador = operadorNome(operador);
+
+  indiceOperador = (indiceOperador + 1) % operadoresOnline.length;
+  totalBancasEnviadas++;
+
+  const envio = await sock.sendMessage(operador, {
+    text:
+`📥 Nova banca liberada
+
+Valor: R$ ${banca.valor}
+
+${banca.textoBanca}
+
+Responda esta mensagem com FOTO.
+Limite: 2 bancas/fotos.`
+  });
+
+  banca.operadorJid = operador;
+  banca.operadorNome = nomeOperador;
+  banca.operadorMsgId = envio.key.id;
+  banca.fotosEnviadas = 0;
+  banca.liberada = true;
+
+  bancasPorMensagemOriginal.set(banca.originalMessageId, banca);
+  bancasPorMensagemOperador.set(envio.key.id, banca);
+
+  await sock.sendMessage(banca.clienteJid, {
+    text: MSG_DEPOSITO_CONFIRMADO
+  });
+
+  await sock.sendMessage(banca.clienteJid, {
+    text: `✅ Banca liberada para ${nomeOperador}`
+  });
+
+  return {
+    ok: true,
+    operador: nomeOperador
+  };
+}
+
+async function entregarBancasPendentes() {
+  if (!operadoresOnline.length) return;
+
+  while (bancasPagasPendentes.length && operadoresOnline.length) {
+    const banca = bancasPagasPendentes.shift();
+    await liberarBancaParaOperador(banca);
+  }
+}
+
+setInterval(async () => {
+  if (!sock || !MP_TOKEN) return;
+
+  for (const [paymentId, banca] of pagamentosPendentes.entries()) {
+    try {
+      const data = await consultarPagamentoMercadoPago(paymentId);
+
+      if (!data) continue;
+
+      if (data.status === 'approved') {
+        pagamentosPendentes.delete(paymentId);
+        totalPixPagos++;
+
+        await liberarBancaParaOperador(banca);
+      }
+
+      if (
+        data.status === 'cancelled' ||
+        data.status === 'rejected' ||
+        data.status === 'refunded'
+      ) {
+        pagamentosPendentes.delete(paymentId);
+
+        await sock.sendMessage(banca.clienteJid, {
+          text: `⚠️ Pagamento não aprovado. Status: ${data.status}`
+        });
+      }
+    } catch (err) {
+      console.error('Erro no monitoramento Pix:', err);
+    }
+  }
+}, 15000);
+
+/* PLANILHA */
 const lucroTabela = {
   300: 60, 350: 60, 400: 60, 450: 60, 500: 60,
   550: 70, 600: 80, 650: 90, 700: 90, 750: 100,
@@ -306,17 +482,6 @@ async function salvarNaPlanilha({ texto, messageId }) {
     });
 
     salvos++;
-
-    console.log('SALVO NOVA LINHA:', {
-      linha,
-      deposito,
-      sacado,
-      casa,
-      banca,
-      lucro,
-      aba,
-      idFinal
-    });
   }
 
   return salvos;
@@ -381,6 +546,7 @@ async function apagarDaPlanilha(messageId) {
   return linhas.length > 0;
 }
 
+/* COMANDOS */
 async function processarComandos(msg, texto, remetente, isAdmin) {
   const comando = String(texto || '').trim().toLowerCase();
 
@@ -392,6 +558,8 @@ async function processarComandos(msg, texto, remetente, isAdmin) {
     await sock.sendMessage(remetente, {
       text: '✅ Status atualizado: online'
     });
+
+    await entregarBancasPendentes();
 
     return true;
   }
@@ -478,7 +646,10 @@ async function processarComandos(msg, texto, remetente, isAdmin) {
       text:
 `📊 Estatísticas
 
-Leads enviados hoje: ${totalLeadsEnviados}
+Pix gerados: ${totalPixGerados}
+Pix pagos: ${totalPixPagos}
+Bancas liberadas: ${totalBancasEnviadas}
+Bancas pagas pendentes: ${bancasPagasPendentes.length}
 Operadores online: ${operadoresOnline.length}
 Próximo da fila: ${proximo}`
     });
@@ -489,9 +660,13 @@ Próximo da fila: ${proximo}`
   if (comando === '/reset') {
     operadoresOnline = [];
     indiceOperador = 0;
-    totalLeadsEnviados = 0;
-    leadsPorMensagemOriginal.clear();
-    leadsPorMensagemOperador.clear();
+    totalBancasEnviadas = 0;
+    totalPixGerados = 0;
+    totalPixPagos = 0;
+    bancasPorMensagemOriginal.clear();
+    bancasPorMensagemOperador.clear();
+    pagamentosPendentes.clear();
+    bancasPagasPendentes.length = 0;
 
     await sock.sendMessage(remetente, {
       text:
@@ -499,7 +674,8 @@ Próximo da fila: ${proximo}`
 
 Fila zerada
 Índice reiniciado
-Leads temporários limpos`
+Bancas temporárias limpas
+Pagamentos pendentes limpos`
     });
 
     return true;
@@ -522,46 +698,105 @@ Leads temporários limpos`
       return true;
     }
 
-    const textoLead = textoDaQuotedMessage(quoted.quotedMessage);
+    const textoBanca = textoDaQuotedMessage(quoted.quotedMessage);
 
-    if (!textoLead) {
+    if (!textoBanca) {
       await sock.sendMessage(remetente, {
-        text: '⚠️ Não consegui ler o lead respondido.'
+        text: '⚠️ Não consegui ler a banca respondida.'
       });
       return true;
     }
 
-    const operador = operadoresOnline[indiceOperador];
-    const nomeOperador = operadorNome(operador);
-
-    indiceOperador = (indiceOperador + 1) % operadoresOnline.length;
-    totalLeadsEnviados++;
-
-    const envio = await sock.sendMessage(operador, {
-      text:
-`📥 Novo lead
-
-${textoLead}
-
-Responda esta mensagem com FOTO.
-Limite: 2 fotos.`
-    });
-
-    const lead = {
+    const banca = {
       originalMessageId: quoted.stanzaId,
       clienteJid: msg.key.remoteJid,
-      operadorJid: operador,
-      operadorNome: nomeOperador,
-      textoLead,
-      fotosEnviadas: 0,
-      operadorMsgId: envio.key.id
+      textoBanca,
+      valor: 'manual',
+      fotosEnviadas: 0
     };
 
-    leadsPorMensagemOriginal.set(quoted.stanzaId, lead);
-    leadsPorMensagemOperador.set(envio.key.id, lead);
+    const resultado = await liberarBancaParaOperador(banca);
+
+    if (resultado.ok) {
+      await sock.sendMessage(remetente, {
+        text: `✅ Banca liberada para ${resultado.operador}`
+      });
+    }
+
+    return true;
+  }
+
+  if (comando.startsWith('/pix')) {
+    const partes = comando.split(/\s+/);
+    const valor = Number(String(partes[1] || '').replace(',', '.'));
+
+    if (!valor || valor <= 0) {
+      await sock.sendMessage(remetente, {
+        text: 'Use: /pix 500'
+      });
+      return true;
+    }
+
+    const quoted = getQuotedInfo(msg.message);
+
+    if (!quoted.stanzaId) {
+      await sock.sendMessage(remetente, {
+        text: '⚠️ Responda a mensagem/link do cliente com /pix 500.'
+      });
+      return true;
+    }
+
+    const textoBanca = textoDaQuotedMessage(quoted.quotedMessage);
+
+    if (!textoBanca) {
+      await sock.sendMessage(remetente, {
+        text: '⚠️ Não consegui ler a banca respondida.'
+      });
+      return true;
+    }
+
+    const pix = await gerarPixMercadoPago(
+      valor,
+      `Banca Meia do Lucão - R$ ${valor}`
+    );
+
+    totalPixGerados++;
+
+    const banca = {
+      paymentId: pix.id,
+      originalMessageId: quoted.stanzaId,
+      clienteJid: msg.key.remoteJid,
+      textoBanca,
+      valor,
+      fotosEnviadas: 0,
+      liberada: false
+    };
+
+    pagamentosPendentes.set(String(pix.id), banca);
+
+    if (pix.qr_code_base64) {
+      await sock.sendMessage(remetente, {
+        image: Buffer.from(pix.qr_code_base64, 'base64'),
+        caption:
+`💰 PIX GERADO
+
+Valor: R$ ${valor.toFixed(2).replace('.', ',')}
+
+⏳ Aguardando pagamento...`
+      });
+    }
+
+    if (pix.qr_code) {
+      await sock.sendMessage(remetente, {
+        text:
+`📋 PIX COPIA E COLA:
+
+${pix.qr_code}`
+      });
+    }
 
     await sock.sendMessage(remetente, {
-      text: `✅ Lead enviado para ${nomeOperador}`
+      text: `✅ Pix criado. ID: ${pix.id}\nAssim que aprovar, a banca será liberada automaticamente.`
     });
 
     return true;
@@ -572,28 +807,28 @@ Limite: 2 fotos.`
 
     if (!quoted.stanzaId) {
       await sock.sendMessage(remetente, {
-        text: '⚠️ Responda o lead original com o valor. Ex: /500'
+        text: '⚠️ Responda a banca original com o valor. Ex: /500'
       });
       return true;
     }
 
-    const lead = leadsPorMensagemOriginal.get(quoted.stanzaId);
+    const banca = bancasPorMensagemOriginal.get(quoted.stanzaId);
 
-    if (!lead) {
+    if (!banca) {
       await sock.sendMessage(remetente, {
-        text: '⚠️ Este lead ainda não foi distribuído com /next.'
+        text: '⚠️ Esta banca ainda não foi liberada para operador.'
       });
       return true;
     }
 
     const valor = valorDoComando(comando);
 
-    await sock.sendMessage(lead.operadorJid, {
+    await sock.sendMessage(banca.operadorJid, {
       text: `💰 Valor fechado: R$ ${valor}`
     });
 
     await sock.sendMessage(remetente, {
-      text: `💰 Valor enviado para ${lead.operadorNome}`
+      text: `💰 Valor enviado para ${banca.operadorNome}`
     });
 
     return true;
@@ -611,39 +846,40 @@ async function processarFotoOperador(msg, remetente) {
 
   if (!quoted.stanzaId) return false;
 
-  const lead = leadsPorMensagemOperador.get(quoted.stanzaId);
+  const banca = bancasPorMensagemOperador.get(quoted.stanzaId);
 
-  if (!lead) return false;
+  if (!banca) return false;
 
-  if (lead.operadorJid !== remetente) {
+  if (banca.operadorJid !== remetente) {
     await sock.sendMessage(remetente, {
-      text: '⚠️ Este lead não está vinculado a você.'
+      text: '⚠️ Esta banca não está vinculada a você.'
     });
     return true;
   }
 
-  if (lead.fotosEnviadas >= 2) {
+  if (banca.fotosEnviadas >= 2) {
     await sock.sendMessage(remetente, {
-      text: '⛔ Limite de 2 fotos atingido para este lead.'
+      text: '⛔ Limite de 2 bancas atingido para este cliente.'
     });
     return true;
   }
 
   const buffer = await baixarImagem(msg.message);
 
-  await sock.sendMessage(lead.clienteJid, {
+  await sock.sendMessage(banca.clienteJid, {
     image: buffer
   });
 
-  lead.fotosEnviadas++;
+  banca.fotosEnviadas++;
 
   await sock.sendMessage(remetente, {
-    text: `✅ Foto enviada ao cliente. (${lead.fotosEnviadas}/2)`
+    text: `✅ Banca enviada ao cliente. (${banca.fotosEnviadas}/2)`
   });
 
   return true;
 }
 
+/* WHATSAPP */
 async function conectarWhatsApp() {
   const { state, saveCreds } =
     await useMultiFileAuthState('./auth');
@@ -727,7 +963,6 @@ async function conectarWhatsApp() {
         if (fotoProcessada) continue;
 
         if (isAdmin) continue;
-
         if (!texto) continue;
 
         await entrarNaFila(() =>
@@ -787,6 +1022,7 @@ async function conectarWhatsApp() {
   });
 }
 
+/* ROTAS */
 app.get('/ping', (req, res) => {
   res.status(200).send('pong');
 });
@@ -804,7 +1040,11 @@ app.get('/status', (req, res) => {
     status,
     qr: Boolean(qrAtual),
     operadoresOnline: operadoresOnline.length,
-    leadsEnviados: totalLeadsEnviados
+    pixGerados: totalPixGerados,
+    pixPagos: totalPixPagos,
+    bancasLiberadas: totalBancasEnviadas,
+    bancasPagasPendentes: bancasPagasPendentes.length,
+    pagamentosPendentes: pagamentosPendentes.size
   });
 });
 

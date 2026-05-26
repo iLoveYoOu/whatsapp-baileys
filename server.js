@@ -25,18 +25,15 @@ let sock = null;
 let qrAtual = '';
 let status = 'iniciando';
 
-/* FILA ANTI-SOBRESCRITA */
 let fila = Promise.resolve();
 
 function entrarNaFila(tarefa) {
   fila = fila.then(tarefa).catch(err => {
     console.error('Erro na fila:', err);
   });
-
   return fila;
 }
 
-/* FILA DE OPERADORES */
 let operadoresOnline = [];
 let indiceOperador = 0;
 let totalBancasEnviadas = 0;
@@ -48,7 +45,6 @@ const bancasPorMensagemOperador = new Map();
 const pagamentosPendentes = new Map();
 const bancasPagasPendentes = [];
 
-/* MENSAGEM PÓS-PAGAMENTO */
 const MSG_DEPOSITO_CONFIRMADO =
 `✅ DEU CERTO! DEPÓSITO CONFIRMADO!
 
@@ -83,7 +79,6 @@ function valorDoComando(texto) {
 
 function textoDaMensagem(message) {
   if (!message) return '';
-
   const type = getContentType(message);
 
   if (type === 'conversation') return message.conversation || '';
@@ -130,7 +125,7 @@ async function baixarImagem(message) {
   return buffer;
 }
 
-/* MERCADO PAGO PIX */
+/* MERCADO PAGO ORDERS API */
 async function gerarPixMercadoPago(valor, descricao) {
   if (!MP_TOKEN) {
     throw new Error('MERCADO_PAGO_ACCESS_TOKEN não configurado no Render.');
@@ -189,20 +184,6 @@ async function gerarPixMercadoPago(valor, descricao) {
     ticket_url: method.ticket_url || ''
   };
 }
-  const data = await resp.json();
-
-  if (!resp.ok) {
-    console.error('Erro Mercado Pago:', data);
-    throw new Error(data?.message || 'Erro ao gerar Pix Mercado Pago.');
-  }
-
-  return {
-    id: data.id,
-    status: data.status,
-    qr_code: data.point_of_interaction?.transaction_data?.qr_code || '',
-    qr_code_base64: data.point_of_interaction?.transaction_data?.qr_code_base64 || ''
-  };
-}
 
 async function consultarPagamentoMercadoPago(orderId) {
   if (!MP_TOKEN) {
@@ -226,6 +207,7 @@ async function consultarPagamentoMercadoPago(orderId) {
 
   return data;
 }
+
 async function liberarBancaParaOperador(banca) {
   if (!operadoresOnline.length) {
     bancasPagasPendentes.push(banca);
@@ -234,10 +216,7 @@ async function liberarBancaParaOperador(banca) {
       text: '✅ Pagamento aprovado.\n⚠️ Nenhum operador online no momento. Sua banca ficará aguardando atendimento.'
     });
 
-    return {
-      ok: false,
-      pendente: true
-    };
+    return { ok: false, pendente: true };
   }
 
   const operador = operadoresOnline[indiceOperador];
@@ -275,10 +254,7 @@ Limite: 2 bancas/fotos.`
     text: `✅ Banca liberada para ${nomeOperador}`
   });
 
-  return {
-    ok: true,
-    operador: nomeOperador
-  };
+  return { ok: true, operador: nomeOperador };
 }
 
 async function entregarBancasPendentes() {
@@ -296,13 +272,15 @@ setInterval(async () => {
   for (const [paymentId, banca] of pagamentosPendentes.entries()) {
     try {
       const data = await consultarPagamentoMercadoPago(paymentId);
-
       if (!data) continue;
 
-      if (data.status === 'approved') {
+      if (
+        data.status === 'processed' ||
+        data.status_detail === 'accredited' ||
+        data.status === 'approved'
+      ) {
         pagamentosPendentes.delete(paymentId);
         totalPixPagos++;
-
         await liberarBancaParaOperador(banca);
       }
 
@@ -394,10 +372,7 @@ function authSheets() {
     scopes: ['https://www.googleapis.com/auth/spreadsheets']
   });
 
-  return google.sheets({
-    version: 'v4',
-    auth
-  });
+  return google.sheets({ version: 'v4', auth });
 }
 
 async function garantirAba(sheets, aba) {
@@ -461,7 +436,6 @@ async function proximaLinhaColunaB(sheets, aba) {
     const colunaB = String(rows[i][1] || '').trim();
 
     if (colunaA.includes('total')) break;
-
     if (!colunaB) return i + 2;
   }
 
@@ -507,15 +481,7 @@ async function salvarNaPlanilha({ texto, messageId }) {
       range: `'${aba}'!B${linha}:H${linha}`,
       valueInputOption: 'USER_ENTERED',
       requestBody: {
-        values: [[
-          deposito,
-          sacado,
-          casa,
-          banca,
-          lucro,
-          aba,
-          idFinal
-        ]]
+        values: [[deposito, sacado, casa, banca, lucro, aba, idFinal]]
       }
     });
 
@@ -588,6 +554,35 @@ async function apagarDaPlanilha(messageId) {
 async function processarComandos(msg, texto, remetente, isAdmin) {
   const comando = String(texto || '').trim().toLowerCase();
 
+  if (comando === '/menu' || comando === '/ajuda') {
+    await sock.sendMessage(remetente, {
+      text:
+`📋 MENU DE COMANDOS
+
+👨‍💻 OPERADORES
+/opon - entrar na fila
+/opoff - sair da fila
+
+👑 ADMIN
+/fila - ver operadores online
+/stats - estatísticas
+/reset - resetar sistema
+/clearfila - limpar fila
+/kickop 1 - remover operador
+
+💰 BANCAS
+/next - liberar banca manual
+/pix 500 - gerar Pix
+/500 - enviar valor para operador
+
+📸 OPERADOR
+Responder banca com FOTO
+Limite: 2 fotos por banca`
+    });
+
+    return true;
+  }
+
   if (comando === '/opon') {
     if (!operadoresOnline.includes(remetente)) {
       operadoresOnline.push(remetente);
@@ -616,9 +611,7 @@ async function processarComandos(msg, texto, remetente, isAdmin) {
     return true;
   }
 
-  if (!isAdmin) {
-    return false;
-  }
+  if (!isAdmin) return false;
 
   if (comando === '/fila') {
     const lista = operadoresOnline.length
@@ -939,11 +932,7 @@ async function conectarWhatsApp() {
   sock.ev.on('creds.update', saveCreds);
 
   sock.ev.on('connection.update', async (update) => {
-    const {
-      connection,
-      lastDisconnect,
-      qr
-    } = update;
+    const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
       qrAtual = qr;
@@ -962,14 +951,9 @@ async function conectarWhatsApp() {
         lastDisconnect?.error?.output?.statusCode !==
         DisconnectReason.loggedOut;
 
-      status = shouldReconnect
-        ? 'reconectando'
-        : 'deslogado';
+      status = shouldReconnect ? 'reconectando' : 'deslogado';
 
-      console.log(
-        'Conexão fechada. Reconectar:',
-        shouldReconnect
-      );
+      console.log('Conexão fechada. Reconectar:', shouldReconnect);
 
       if (shouldReconnect) {
         setTimeout(() => conectarWhatsApp(), 5000);
@@ -984,7 +968,6 @@ async function conectarWhatsApp() {
 
         const remetente = msg.key.remoteJid;
         const isAdmin = msg.key.fromMe;
-
         const texto = textoDaMensagem(msg.message);
         const messageId = msg.key.id || '';
 
@@ -1010,10 +993,7 @@ async function conectarWhatsApp() {
           })
         );
       } catch (err) {
-        console.error(
-          'Erro ao processar mensagem:',
-          err
-        );
+        console.error('Erro ao processar mensagem:', err);
       }
     }
   });
@@ -1046,11 +1026,7 @@ async function conectarWhatsApp() {
               messageId: id
             });
 
-            console.log(
-              'Mensagem editada atualizada:',
-              id,
-              salvos
-            );
+            console.log('Mensagem editada atualizada:', id, salvos);
           });
         }
       } catch (err) {

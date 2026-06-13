@@ -1,4 +1,8 @@
 ﻿require('dotenv').config();
+const fs = require('fs');
+const https = require('https');
+const axios = require('axios');
+const crypto = require('crypto');
 
 const express = require('express');
 const QRCode = require('qrcode');
@@ -20,6 +24,9 @@ app.use(express.json({ limit: '20mb' }));
 const PORT = process.env.PORT || 3000;
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const MP_TOKEN = process.env.MERCADO_PAGO_ACCESS_TOKEN;
+const CORA_CLIENT_ID = String(process.env.CORA_CLIENT_ID || '').trim();
+const CORA_CERT_PATH = process.env.CORA_CERT_PATH || './certs/certificate.pem';
+const CORA_KEY_PATH = process.env.CORA_KEY_PATH || './certs/private-key.key';
 
 let sock = null;
 let qrAtual = '';
@@ -124,7 +131,118 @@ async function baixarImagem(message) {
 
   return buffer;
 }
+/* CORA API */
+function lerPem(valorEnv, caminhoArquivo) {
+  if (valorEnv) return String(valorEnv).replace(/\\n/g, '\n');
+  return fs.readFileSync(caminhoArquivo);
+}
 
+function criarCoraAgent() {
+  return new https.Agent({
+    cert: lerPem(process.env.CORA_CERT_PEM, CORA_CERT_PATH),
+    key: lerPem(process.env.CORA_KEY_PEM, CORA_KEY_PATH),
+    rejectUnauthorized: true
+  });
+}
+async function obterTokenCora() {
+  if (!CORA_CLIENT_ID) {
+    throw new Error('CORA_CLIENT_ID não configurado.');
+  }
+
+  const body = new URLSearchParams({
+    grant_type: 'client_credentials',
+    client_id: CORA_CLIENT_ID
+  });
+
+  const resp = await axios.post(
+    'https://matls-clients.api.cora.com.br/token',
+    body.toString(),
+    {
+      httpsAgent: criarCoraAgent(),
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Accept: 'application/json'
+      },
+      timeout: 30000
+    }
+  );
+
+  return resp.data.access_token;
+}
+
+async function gerarPixCora(valor) {
+  const token = await obterTokenCora();
+
+  const valorCentavos = Math.round(Number(valor) * 100);
+
+  if (!valorCentavos || valorCentavos < 500) {
+    throw new Error('Valor mínimo da Cora é R$ 5,00.');
+  }
+
+  const vencimento = new Date();
+  vencimento.setDate(vencimento.getDate() + 1);
+
+  const payload = {
+    code: `pixcora-${Date.now()}`,
+    customer: {
+      name: 'Cliente Pix Cora',
+      email: 'cliente@teste.com',
+      document: {
+        identity: '12345678909',
+        type: 'CPF'
+      },
+      address: {
+        street: 'Rua Teste',
+        number: '123',
+        district: 'Centro',
+        city: 'Praia Grande',
+        state: 'SP',
+        complement: '',
+        zip_code: '11700000'
+      }
+    },
+    services: [
+      {
+        name: `Banca Meia do Lucão - R$ ${Number(valor).toFixed(2)}`,
+        amount: valorCentavos
+      }
+    ],
+    payment_terms: {
+      due_date: vencimento.toISOString().split('T')[0]
+    },
+    payment_forms: ['PIX']
+  };
+
+  const resp = await axios.post(
+    'https://matls-clients.api.cora.com.br/v2/invoices',
+    payload,
+    {
+      httpsAgent: criarCoraAgent(),
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'Idempotency-Key': crypto.randomUUID()
+      },
+      timeout: 30000
+    }
+  );
+
+  const emv = resp.data?.payment_options?.pix?.emv;
+  const qrUrl = resp.data?.payment_options?.bank_slip?.url;
+  const invoiceId = resp.data?.id || resp.data?.code || '';
+
+  if (!emv) {
+    throw new Error('Cora não retornou EMV Pix.');
+  }
+
+  return {
+    id: invoiceId,
+    emv,
+    qrUrl,
+    raw: resp.data
+  };
+}
 /* MERCADO PAGO ORDERS API */
 async function gerarPixMercadoPago(valor, descricao) {
   if (!MP_TOKEN) {
@@ -778,7 +896,55 @@ Pagamentos pendentes limpos`
 
     return true;
   }
+if (comando.startsWith('/pixcora')) {
+  const partes = comando.split(/\s+/);
+  const valor = Number(String(partes[1] || '').replace(',', '.'));
 
+  if (!valor || valor < 5) {
+    await sock.sendMessage(remetente, {
+      text: 'Use: /pixcora 5\nValor mínimo: R$ 5,00'
+    });
+    return true;
+  }
+
+  try {
+    const pix = await gerarPixCora(valor);
+
+    await sock.sendMessage(remetente, {
+      text:
+`💰 PIX CORA GERADO
+
+Valor: R$ ${valor.toFixed(2).replace('.', ',')}
+
+📋 PIX COPIA E COLA:`
+    });
+
+    await sock.sendMessage(remetente, {
+      text: pix.emv
+    });
+
+    if (pix.qrUrl) {
+      await sock.sendMessage(remetente, {
+        text: `🔗 QR Code Cora:\n${pix.qrUrl}`
+      });
+    }
+
+    await sock.sendMessage(remetente, {
+      text: `✅ Pix Cora criado.\nID: ${pix.id || 'sem id'}`
+    });
+  } catch (err) {
+    console.error('Erro Pix Cora:', err.response?.data || err.message);
+
+    await sock.sendMessage(remetente, {
+      text:
+`❌ Erro ao gerar Pix Cora.
+
+${err.response?.data?.message || err.message}`
+    });
+  }
+
+  return true;
+}
   if (comando.startsWith('/pix')) {
     const partes = comando.split(/\s+/);
     const valor = Number(String(partes[1] || '').replace(',', '.'));

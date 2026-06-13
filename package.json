@@ -10,12 +10,13 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "latest",
     "@hapi/boom": "latest",
+    "@whiskeysockets/baileys": "latest",
+    "axios": "^1.17.0",
+    "dotenv": "latest",
     "express": "latest",
-    "qrcode": "latest",
     "googleapis": "latest",
     "pino": "latest",
-    "dotenv": "latest"
+    "qrcode": "latest"
   }
 }

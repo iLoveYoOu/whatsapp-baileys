@@ -228,7 +228,9 @@ async function gerarPixCora(valor) {
     }
   );
 
-  const emv = resp.data?.payment_options?.pix?.emv;
+const emv =
+  resp.data?.payment_options?.pix?.emv ||
+  resp.data?.pix?.emv;
   const qrUrl = resp.data?.payment_options?.bank_slip?.url;
   const invoiceId = resp.data?.id || resp.data?.code || '';
 

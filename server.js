@@ -1233,6 +1233,49 @@ async function conectarWhatsApp() {
   });
 }
 
+app.post('/pix-test', async (req, res) => {
+  try {
+    const { titulo, texto } = req.body;
+
+    console.log('=== PIX TESTE MACRODROID ===');
+    console.log('Título:', titulo);
+    console.log('Texto:', texto);
+
+    if (!sock) {
+      return res.status(503).json({
+        sucesso: false,
+        erro: 'WhatsApp não conectado'
+      });
+    }
+
+    await sock.sendMessage(
+      '5511979501263@s.whatsapp.net',
+      {
+        text:
+`🧪 TESTE MACRODROID
+
+📲 Título:
+${titulo || 'Sem título'}
+
+💬 Texto:
+${texto || 'Sem texto'}`
+      }
+    );
+
+    return res.status(200).json({
+      sucesso: true
+    });
+
+  } catch (err) {
+    console.error('Erro /pix-test:', err);
+
+    return res.status(500).json({
+      sucesso: false,
+      erro: err.message
+    });
+  }
+});
+
 /* ROTAS */
 app.get('/ping', (req, res) => {
   res.status(200).send('pong');

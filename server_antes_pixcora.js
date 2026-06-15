@@ -1,0 +1,1113 @@
+﻿require('dotenv').config();
+
+const express = require('express');
+const QRCode = require('qrcode');
+const pino = require('pino');
+const { google } = require('googleapis');
+
+const {
+  default: makeWASocket,
+  useMultiFileAuthState,
+  DisconnectReason,
+  fetchLatestBaileysVersion,
+  getContentType,
+  downloadContentFromMessage
+} = require('@whiskeysockets/baileys');
+
+const app = express();
+app.use(express.json({ limit: '20mb' }));
+
+const PORT = process.env.PORT || 3000;
+const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+const MP_TOKEN = process.env.MERCADO_PAGO_ACCESS_TOKEN;
+
+let sock = null;
+let qrAtual = '';
+let status = 'iniciando';
+
+let fila = Promise.resolve();
+
+function entrarNaFila(tarefa) {
+  fila = fila.then(tarefa).catch(err => {
+    console.error('Erro na fila:', err);
+  });
+  return fila;
+}
+
+let operadoresOnline = [];
+let indiceOperador = 0;
+let totalBancasEnviadas = 0;
+let totalPixGerados = 0;
+let totalPixPagos = 0;
+
+const bancasPorMensagemOriginal = new Map();
+const bancasPorMensagemOperador = new Map();
+const pagamentosPendentes = new Map();
+const bancasPagasPendentes = [];
+
+const MSG_DEPOSITO_CONFIRMADO =
+`âœ… DEU CERTO! DEPÃ“SITO CONFIRMADO!
+
+âš ï¸ ATENÃ‡ÃƒO - MUITO IMPORTANTE!
+
+Meu nÃºmero de atendimento pode cair a qualquer momento!
+
+Se a mensagem NÃƒO CHEGAR, nÃ£o fique sem resposta!
+
+ðŸ“ž CHAMA DIRETO NO NÃšMERO RESERVA:
+48 98425-5049
+
+ðŸ•˜ HorÃ¡rio de atendimento:
+Todos os dias das 09:00 Ã s 00:30
+
+ðŸ™ Obrigado pela confianÃ§a!
+
+Att: Equipe Meia do LucÃ£o`;
+
+function operadorNome(jid) {
+  const index = operadoresOnline.indexOf(jid);
+  return index >= 0 ? `Operador ${index + 1}` : 'Operador';
+}
+
+function isComandoValor(texto) {
+  return /^\/\d+([.,]\d{1,2})?$/.test(String(texto || '').trim());
+}
+
+function valorDoComando(texto) {
+  return String(texto || '').trim().replace('/', '').replace(',', '.');
+}
+
+function textoDaMensagem(message) {
+  if (!message) return '';
+  const type = getContentType(message);
+
+  if (type === 'conversation') return message.conversation || '';
+  if (type === 'extendedTextMessage') return message.extendedTextMessage?.text || '';
+  if (type === 'imageMessage') return message.imageMessage?.caption || '';
+  if (type === 'videoMessage') return message.videoMessage?.caption || '';
+  if (type === 'documentMessage') return message.documentMessage?.caption || '';
+
+  return '';
+}
+
+function getQuotedInfo(message) {
+  const type = getContentType(message);
+  const msg = message?.[type];
+  const ctx = msg?.contextInfo;
+
+  return {
+    stanzaId: ctx?.stanzaId || '',
+    participant: ctx?.participant || '',
+    quotedMessage: ctx?.quotedMessage || null
+  };
+}
+
+function textoDaQuotedMessage(quotedMessage) {
+  if (!quotedMessage) return '';
+
+  if (quotedMessage.conversation) return quotedMessage.conversation || '';
+  if (quotedMessage.extendedTextMessage) return quotedMessage.extendedTextMessage.text || '';
+  if (quotedMessage.imageMessage) return quotedMessage.imageMessage.caption || '';
+  if (quotedMessage.videoMessage) return quotedMessage.videoMessage.caption || '';
+  if (quotedMessage.documentMessage) return quotedMessage.documentMessage.caption || '';
+
+  return '';
+}
+
+async function baixarImagem(message) {
+  const stream = await downloadContentFromMessage(message.imageMessage, 'image');
+  let buffer = Buffer.from([]);
+
+  for await (const chunk of stream) {
+    buffer = Buffer.concat([buffer, chunk]);
+  }
+
+  return buffer;
+}
+
+/* MERCADO PAGO ORDERS API */
+async function gerarPixMercadoPago(valor, descricao) {
+  if (!MP_TOKEN) {
+    throw new Error('MERCADO_PAGO_ACCESS_TOKEN nÃ£o configurado no Render.');
+  }
+
+  const valorFormatado = Number(valor).toFixed(2);
+  const externalReference = `banca_${Date.now()}_${Math.floor(Math.random() * 999999)}`;
+
+  const resp = await fetch('https://api.mercadopago.com/v1/orders', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${MP_TOKEN}`,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      'X-Idempotency-Key': externalReference
+    },
+    body: JSON.stringify({
+      type: 'online',
+      total_amount: valorFormatado,
+      external_reference: externalReference,
+      processing_mode: 'automatic',
+      transactions: {
+        payments: [
+          {
+            amount: valorFormatado,
+            payment_method: {
+              id: 'pix',
+              type: 'bank_transfer'
+            }
+          }
+        ]
+      },
+      payer: {
+        email: `cliente${Date.now()}@email.com`
+      }
+    })
+  });
+
+  const data = await resp.json();
+
+  if (!resp.ok) {
+    console.error('Erro Mercado Pago Orders:', data);
+    throw new Error(data?.message || 'Erro ao gerar Pix Mercado Pago Orders.');
+  }
+
+  const payment = data.transactions?.payments?.[0] || {};
+  const method = payment.payment_method || {};
+
+  return {
+    id: data.id,
+    payment_id: payment.id || '',
+    status: data.status,
+    status_detail: data.status_detail,
+    qr_code: method.qr_code || '',
+    qr_code_base64: method.qr_code_base64 || '',
+    ticket_url: method.ticket_url || ''
+  };
+}
+
+async function consultarPagamentoMercadoPago(orderId) {
+  if (!MP_TOKEN) {
+    throw new Error('MERCADO_PAGO_ACCESS_TOKEN nÃ£o configurado no Render.');
+  }
+
+  const resp = await fetch(`https://api.mercadopago.com/v1/orders/${orderId}`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${MP_TOKEN}`,
+      Accept: 'application/json'
+    }
+  });
+
+  const data = await resp.json();
+
+  if (!resp.ok) {
+    console.error('Erro ao consultar order:', data);
+    return null;
+  }
+
+  return data;
+}
+
+async function liberarBancaParaOperador(banca) {
+  if (!operadoresOnline.length) {
+    bancasPagasPendentes.push(banca);
+
+    await sock.sendMessage(banca.clienteJid, {
+      text: 'âœ… Pagamento aprovado.\nâš ï¸ Nenhum operador online no momento. Sua banca ficarÃ¡ aguardando atendimento.'
+    });
+
+    return { ok: false, pendente: true };
+  }
+
+  const operador = operadoresOnline[indiceOperador];
+  const nomeOperador = operadorNome(operador);
+
+  indiceOperador = (indiceOperador + 1) % operadoresOnline.length;
+  totalBancasEnviadas++;
+
+  const envio = await sock.sendMessage(operador, {
+    text:
+`ðŸ“¥ Nova banca liberada
+
+Valor: R$ ${banca.valor}
+
+${banca.textoBanca}
+
+📸 Envie apenas a FOTO 1/2.
+
+Após o pagamento confirmado, você poderá enviar a FOTO 2/2.`
+  });
+
+  banca.operadorJid = operador;
+  banca.operadorNome = nomeOperador;
+  banca.operadorMsgId = envio.key.id;
+  banca.fotosEnviadas = 0;
+  banca.liberada = true;
+  banca.pagamentoConfirmado = false;
+
+  bancasPorMensagemOriginal.set(banca.originalMessageId, banca);
+  bancasPorMensagemOperador.set(envio.key.id, banca);
+
+  await sock.sendMessage(banca.clienteJid, {
+    text: MSG_DEPOSITO_CONFIRMADO
+  });
+
+  await sock.sendMessage(banca.clienteJid, {
+    text: `âœ… Banca liberada para ${nomeOperador}`
+  });
+
+  return { ok: true, operador: nomeOperador };
+}
+
+async function entregarBancasPendentes() {
+  if (!operadoresOnline.length) return;
+
+  while (bancasPagasPendentes.length && operadoresOnline.length) {
+    const banca = bancasPagasPendentes.shift();
+    await liberarBancaParaOperador(banca);
+  }
+}
+
+setInterval(async () => {
+  if (!sock || !MP_TOKEN) return;
+
+  for (const [paymentId, banca] of pagamentosPendentes.entries()) {
+    try {
+      const data = await consultarPagamentoMercadoPago(paymentId);
+      if (!data) continue;
+
+      if (
+        data.status === 'processed' ||
+        data.status_detail === 'accredited' ||
+        data.status === 'approved'
+      ) {
+        pagamentosPendentes.delete(paymentId);
+        totalPixPagos++;
+
+        banca.pagamentoConfirmado = true;
+
+        await sock.sendMessage(banca.clienteJid, {
+          text: MSG_DEPOSITO_CONFIRMADO
+        });
+
+        if (banca.operadorJid) {
+          await sock.sendMessage(banca.operadorJid, {
+            text:
+`💰 PAGAMENTO CONFIRMADO
+
+Banca liberada.
+
+Agora você pode enviar a FOTO 2/2.`
+          });
+        }
+      }
+
+      if (
+        data.status === 'cancelled' ||
+        data.status === 'rejected' ||
+        data.status === 'refunded'
+      ) {
+        pagamentosPendentes.delete(paymentId);
+
+        await sock.sendMessage(banca.clienteJid, {
+          text: `âš ï¸ Pagamento nÃ£o aprovado. Status: ${data.status}`
+        });
+      }
+    } catch (err) {
+      console.error('Erro no monitoramento Pix:', err);
+    }
+  }
+}, 15000);
+
+/* PLANILHA */
+const lucroTabela = {
+  300: 60, 350: 60, 400: 60, 450: 60, 500: 60,
+  550: 70, 600: 80, 650: 90, 700: 90, 750: 100,
+  800: 100, 850: 110, 900: 110, 950: 120, 1000: 120,
+  1050: 125, 1100: 130, 1150: 135, 1200: 140,
+  1250: 145, 1300: 150, 1350: 155, 1400: 160,
+  1450: 165, 1500: 170, 1600: 190, 1650: 195,
+  1700: 200, 1750: 205, 1800: 210, 1850: 215,
+  1900: 220, 1950: 225, 2000: 240, 2050: 245,
+  2100: 250, 2150: 255, 2200: 260, 2250: 265,
+  2300: 270, 2350: 275, 2400: 280, 2450: 285,
+  2500: 290, 2600: 310, 2650: 315, 2700: 320,
+  2750: 325, 2800: 330, 2850: 335, 2900: 340,
+  2950: 345, 3000: 360
+};
+
+function calcularLucro(deposito) {
+  const valores = Object.keys(lucroTabela)
+    .map(Number)
+    .sort((a, b) => a - b);
+
+  let lucro = 0;
+
+  for (const valor of valores) {
+    if (deposito >= valor) {
+      lucro = lucroTabela[valor];
+    }
+  }
+
+  return lucro;
+}
+
+function hojeBR() {
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    day: '2-digit',
+    month: '2-digit'
+  }).format(new Date());
+}
+
+function extrair(texto, regex) {
+  const m = String(texto || '').match(regex);
+  return m ? String(m[1]).trim() : '';
+}
+
+function dividirBlocos(texto) {
+  const partes = String(texto || '')
+    .split(/(?=pix\s*:|cpf\s*:|ret\s*:)/i)
+    .map(p => p.trim())
+    .filter(p => /ret\s*:|dep\s*:|plat\s*:/i.test(p));
+
+  return partes.length ? partes : [String(texto || '')];
+}
+
+function authSheets() {
+  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  let key = process.env.GOOGLE_PRIVATE_KEY;
+
+  if (!email || !key) {
+    throw new Error('Configure GOOGLE_SERVICE_ACCOUNT_EMAIL e GOOGLE_PRIVATE_KEY');
+  }
+
+  key = key.replace(/\\n/g, '\n');
+
+  const auth = new google.auth.JWT({
+    email,
+    key,
+    scopes: ['https://www.googleapis.com/auth/spreadsheets']
+  });
+
+  return google.sheets({ version: 'v4', auth });
+}
+
+async function garantirAba(sheets, aba) {
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId: SPREADSHEET_ID
+  });
+
+  const existe = meta.data.sheets.some(
+    s => s.properties.title === aba
+  );
+
+  if (!existe) {
+    throw new Error(`Aba nÃ£o encontrada: ${aba}`);
+  }
+}
+
+async function ocultarColunaH(sheets, aba) {
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId: SPREADSHEET_ID
+  });
+
+  const sheetInfo = meta.data.sheets.find(
+    s => s.properties.title === aba
+  );
+
+  if (!sheetInfo) return;
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: {
+      requests: [
+        {
+          updateDimensionProperties: {
+            range: {
+              sheetId: sheetInfo.properties.sheetId,
+              dimension: 'COLUMNS',
+              startIndex: 7,
+              endIndex: 8
+            },
+            properties: {
+              hiddenByUser: true
+            },
+            fields: 'hiddenByUser'
+          }
+        }
+      ]
+    }
+  });
+}
+
+async function proximaLinhaColunaB(sheets, aba) {
+  const resp = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `'${aba}'!A2:B200`
+  });
+
+  const rows = resp.data.values || [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const colunaA = String(rows[i][0] || '').trim().toLowerCase();
+    const colunaB = String(rows[i][1] || '').trim();
+
+    if (colunaA.includes('total')) break;
+    if (!colunaB) return i + 2;
+  }
+
+  throw new Error('NÃ£o encontrei linha vazia antes do TOTAL.');
+}
+
+async function salvarNaPlanilha({ texto, messageId }) {
+  const sheets = authSheets();
+  const aba = hojeBR();
+
+  await garantirAba(sheets, aba);
+  await ocultarColunaH(sheets, aba);
+
+  const blocos = dividirBlocos(texto);
+  let salvos = 0;
+
+  for (let i = 0; i < blocos.length; i++) {
+    const bloco = blocos[i];
+
+    const depositoTxt = extrair(bloco, /dep\s*:\s*(\d+)/i);
+    const sacadoTxt = extrair(bloco, /ret\s*:\s*(\d+)/i);
+    const casa = extrair(bloco, /plat\s*:\s*(.+)/i);
+
+    const deposito = Number(depositoTxt);
+    const sacado = Number(sacadoTxt);
+
+    if (depositoTxt === '' || sacadoTxt === '' || !casa) continue;
+    if (Number.isNaN(deposito) || Number.isNaN(sacado)) continue;
+
+    const lucro = calcularLucro(deposito);
+
+    const faixaBase =
+      Math.floor((deposito - 500) / 50) * 50 + 500;
+
+    const banca =
+      faixaBase > 0
+        ? faixaBase - lucro
+        : deposito - lucro;
+
+    const idFinal =
+      `${messageId || 'semid'}_${i}_${Date.now()}_${Math.floor(Math.random() * 999999)}`;
+
+    const linha = await proximaLinhaColunaB(sheets, aba);
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'${aba}'!B${linha}:H${linha}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [[deposito, sacado, casa, banca, lucro, aba, idFinal]]
+      }
+    });
+
+    salvos++;
+  }
+
+  return salvos;
+}
+
+async function apagarDaPlanilha(messageId) {
+  if (!messageId) return false;
+
+  const sheets = authSheets();
+  const aba = hojeBR();
+
+  await garantirAba(sheets, aba);
+
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId: SPREADSHEET_ID
+  });
+
+  const sheetInfo = meta.data.sheets.find(
+    s => s.properties.title === aba
+  );
+
+  if (!sheetInfo) return false;
+
+  const resp = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `'${aba}'!H2:H`
+  });
+
+  const rows = resp.data.values || [];
+  const linhas = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const val = String(rows[i][0] || '');
+
+    if (val.includes(messageId)) {
+      linhas.push(i + 2);
+    }
+  }
+
+  linhas.sort((a, b) => b - a);
+
+  for (const linha of linhas) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        requests: [
+          {
+            deleteDimension: {
+              range: {
+                sheetId: sheetInfo.properties.sheetId,
+                dimension: 'ROWS',
+                startIndex: linha - 1,
+                endIndex: linha
+              }
+            }
+          }
+        ]
+      }
+    });
+  }
+
+  return linhas.length > 0;
+}
+
+/* COMANDOS */
+async function processarComandos(msg, texto, remetente, isAdmin) {
+  const comando = String(texto || '').trim().toLowerCase();
+
+  if (comando === '/menu' || comando === '/ajuda') {
+    await sock.sendMessage(remetente, {
+      text:
+`ðŸ“‹ MENU DE COMANDOS
+
+ðŸ‘¨â€ðŸ’» OPERADORES
+/opon - entrar na fila
+/opoff - sair da fila
+
+ðŸ‘‘ ADMIN
+/fila - ver operadores online
+/stats - estatÃ­sticas
+/reset - resetar sistema
+/clearfila - limpar fila
+/kickop 1 - remover operador
+
+ðŸ’° BANCAS
+/next - liberar banca manual
+/pix 500 - gerar Pix
+/500 - enviar valor para operador
+
+ðŸ“¸ OPERADOR
+Responder banca com FOTO
+Limite: 2 fotos por banca`
+    });
+
+    return true;
+  }
+
+  if (comando === '/opon') {
+    if (!operadoresOnline.includes(remetente)) {
+      operadoresOnline.push(remetente);
+    }
+
+    await sock.sendMessage(remetente, {
+      text: 'âœ… Status atualizado: online'
+    });
+
+    await entregarBancasPendentes();
+
+    return true;
+  }
+
+  if (comando === '/opoff') {
+    operadoresOnline = operadoresOnline.filter(op => op !== remetente);
+
+    if (indiceOperador >= operadoresOnline.length) {
+      indiceOperador = 0;
+    }
+
+    await sock.sendMessage(remetente, {
+      text: 'â›” Status atualizado: offline'
+    });
+
+    return true;
+  }
+
+  if (!isAdmin) return false;
+
+  if (comando === '/fila') {
+    const lista = operadoresOnline.length
+      ? operadoresOnline.map((op, i) => `${i + 1}. Operador ${i + 1}`).join('\n')
+      : 'Nenhum operador online.';
+
+    await sock.sendMessage(remetente, {
+      text: `ðŸ“‹ Operadores online:\n\n${lista}`
+    });
+
+    return true;
+  }
+
+  if (comando === '/clearfila') {
+    operadoresOnline = [];
+    indiceOperador = 0;
+
+    await sock.sendMessage(remetente, {
+      text: 'ðŸ§¹ Fila limpa com sucesso.'
+    });
+
+    return true;
+  }
+
+  if (comando.startsWith('/kickop')) {
+    const arg = comando.replace('/kickop', '').trim();
+
+    if (!arg) {
+      await sock.sendMessage(remetente, {
+        text: 'Use: /kickop 1'
+      });
+      return true;
+    }
+
+    const numero = Number(arg);
+
+    if (!numero || numero < 1 || numero > operadoresOnline.length) {
+      await sock.sendMessage(remetente, {
+        text: 'Operador nÃ£o encontrado.'
+      });
+      return true;
+    }
+
+    operadoresOnline.splice(numero - 1, 1);
+
+    if (indiceOperador >= operadoresOnline.length) {
+      indiceOperador = 0;
+    }
+
+    await sock.sendMessage(remetente, {
+      text: `â›” Operador ${numero} removido da fila.`
+    });
+
+    return true;
+  }
+
+  if (comando === '/stats') {
+    const proximo = operadoresOnline.length
+      ? `Operador ${indiceOperador + 1}`
+      : 'Nenhum';
+
+    await sock.sendMessage(remetente, {
+      text:
+`ðŸ“Š EstatÃ­sticas
+
+Pix gerados: ${totalPixGerados}
+Pix pagos: ${totalPixPagos}
+Bancas liberadas: ${totalBancasEnviadas}
+Bancas pagas pendentes: ${bancasPagasPendentes.length}
+Operadores online: ${operadoresOnline.length}
+PrÃ³ximo da fila: ${proximo}`
+    });
+
+    return true;
+  }
+
+  if (comando === '/reset') {
+    operadoresOnline = [];
+    indiceOperador = 0;
+    totalBancasEnviadas = 0;
+    totalPixGerados = 0;
+    totalPixPagos = 0;
+    bancasPorMensagemOriginal.clear();
+    bancasPorMensagemOperador.clear();
+    pagamentosPendentes.clear();
+    bancasPagasPendentes.length = 0;
+
+    await sock.sendMessage(remetente, {
+      text:
+`â™»ï¸ Sistema resetado
+
+Fila zerada
+Ãndice reiniciado
+Bancas temporÃ¡rias limpas
+Pagamentos pendentes limpos`
+    });
+
+    return true;
+  }
+
+  if (comando === '/next') {
+    if (!operadoresOnline.length) {
+      await sock.sendMessage(remetente, {
+        text: 'âš ï¸ Nenhum operador online.'
+      });
+      return true;
+    }
+
+    const quoted = getQuotedInfo(msg.message);
+
+    if (!quoted.stanzaId) {
+      await sock.sendMessage(remetente, {
+        text: 'âš ï¸ Responda a mensagem do cliente com /next.'
+      });
+      return true;
+    }
+
+    const textoBanca = textoDaQuotedMessage(quoted.quotedMessage);
+
+    if (!textoBanca) {
+      await sock.sendMessage(remetente, {
+        text: 'âš ï¸ NÃ£o consegui ler a banca respondida.'
+      });
+      return true;
+    }
+
+    const banca = {
+      originalMessageId: quoted.stanzaId,
+      clienteJid: msg.key.remoteJid,
+      textoBanca,
+      valor: 'manual',
+      fotosEnviadas: 0
+    };
+
+    const resultado = await liberarBancaParaOperador(banca);
+
+    if (resultado.ok) {
+      await sock.sendMessage(remetente, {
+        text: `âœ… Banca liberada para ${resultado.operador}`
+      });
+    }
+
+    return true;
+  }
+
+  if (comando.startsWith('/pix')) {
+    const partes = comando.split(/\s+/);
+    const valor = Number(String(partes[1] || '').replace(',', '.'));
+
+    if (!valor || valor <= 0) {
+      await sock.sendMessage(remetente, {
+        text: 'Use: /pix 500'
+      });
+      return true;
+    }
+
+    const quoted = getQuotedInfo(msg.message);
+
+    if (!quoted.stanzaId) {
+      await sock.sendMessage(remetente, {
+        text: 'âš ï¸ Responda a mensagem/link do cliente com /pix 500.'
+      });
+      return true;
+    }
+
+    const textoBanca = textoDaQuotedMessage(quoted.quotedMessage);
+
+    if (!textoBanca) {
+      await sock.sendMessage(remetente, {
+        text: 'âš ï¸ NÃ£o consegui ler a banca respondida.'
+      });
+      return true;
+    }
+
+    const pix = await gerarPixMercadoPago(
+      valor,
+      `Banca Meia do LucÃ£o - R$ ${valor}`
+    );
+
+    totalPixGerados++;
+
+    const banca = bancasPorMensagemOriginal.get(quoted.stanzaId);
+
+    if (!banca) {
+      await sock.sendMessage(remetente, {
+        text: '⚠️ Primeiro use /next nesse link e aguarde o operador enviar a FOTO 1/2.'
+      });
+      return true;
+    }
+
+    banca.paymentId = pix.id;
+    banca.valor = valor;
+
+    pagamentosPendentes.set(String(pix.id), banca);
+
+    if (pix.qr_code_base64) {
+      await sock.sendMessage(remetente, {
+        image: Buffer.from(pix.qr_code_base64, 'base64'),
+        caption:
+`ðŸ’° PIX GERADO
+
+Valor: R$ ${valor.toFixed(2).replace('.', ',')}
+
+â³ Aguardando pagamento...`
+      });
+    }
+
+    if (pix.qr_code) {
+      await sock.sendMessage(remetente, {
+        text: 'ðŸ“‹ PIX COPIA E COLA:'
+      });
+
+      await sock.sendMessage(remetente, {
+        text: pix.qr_code
+      });
+    }
+
+    await sock.sendMessage(remetente, {
+      text: `âœ… Pix criado. ID: ${pix.id}\nAssim que aprovar, a banca serÃ¡ liberada automaticamente.`
+    });
+
+    return true;
+  }
+
+  if (isComandoValor(comando)) {
+    const quoted = getQuotedInfo(msg.message);
+
+    if (!quoted.stanzaId) {
+      await sock.sendMessage(remetente, {
+        text: 'âš ï¸ Responda a banca original com o valor. Ex: /500'
+      });
+      return true;
+    }
+
+    const banca = bancasPorMensagemOriginal.get(quoted.stanzaId);
+
+    if (!banca) {
+      await sock.sendMessage(remetente, {
+        text: 'âš ï¸ Esta banca ainda nÃ£o foi liberada para operador.'
+      });
+      return true;
+    }
+
+    const valor = valorDoComando(comando);
+
+    await sock.sendMessage(banca.operadorJid, {
+      text: `ðŸ’° Valor fechado: R$ ${valor}`
+    });
+
+    await sock.sendMessage(remetente, {
+      text: `ðŸ’° Valor enviado para ${banca.operadorNome}`
+    });
+
+    return true;
+  }
+
+  return false;
+}
+
+async function processarFotoOperador(msg, remetente) {
+  const type = getContentType(msg.message);
+
+  if (type !== 'imageMessage') return false;
+
+  const quoted = getQuotedInfo(msg.message);
+
+  if (!quoted.stanzaId) return false;
+
+  const banca = bancasPorMensagemOperador.get(quoted.stanzaId);
+
+  if (!banca) return false;
+
+  if (banca.operadorJid !== remetente) {
+    await sock.sendMessage(remetente, {
+      text: '⚠️ Esta banca não está vinculada a você.'
+    });
+    return true;
+  }
+
+  const limiteFotos = banca.pagamentoConfirmado ? 2 : 1;
+
+  if (banca.fotosEnviadas >= limiteFotos) {
+    await sock.sendMessage(remetente, {
+      text: banca.pagamentoConfirmado
+        ? '⛔ FOTO 2/2 já enviada. Limite final atingido.'
+        : '⛔ Aguarde o pagamento do cliente para enviar a FOTO 2/2.'
+    });
+    return true;
+  }
+
+  const buffer = await baixarImagem(msg.message);
+
+  await sock.sendMessage(banca.clienteJid, {
+    image: buffer
+  });
+
+  banca.fotosEnviadas++;
+
+  await sock.sendMessage(remetente, {
+    text: `✅ Banca enviada ao cliente. (${banca.fotosEnviadas}/2)`
+  });
+
+  return true;
+}
+
+/* WHATSAPP */
+async function conectarWhatsApp() {
+  const { state, saveCreds } =
+    await useMultiFileAuthState('./auth');
+
+  const { version } =
+    await fetchLatestBaileysVersion();
+
+  sock = makeWASocket({
+    version,
+    auth: state,
+    logger: pino({ level: 'silent' }),
+    printQRInTerminal: false,
+    browser: ['Sheets Bot', 'Chrome', '1.0'],
+    markOnlineOnConnect: false,
+    syncFullHistory: false,
+    keepAliveIntervalMs: 30000
+  });
+
+  sock.ev.on('creds.update', saveCreds);
+
+  sock.ev.on('connection.update', async (update) => {
+    const { connection, lastDisconnect, qr } = update;
+
+    if (qr) {
+      qrAtual = qr;
+      status = 'aguardando_qr';
+      console.log('QR disponÃ­vel em /qr');
+    }
+
+    if (connection === 'open') {
+      status = 'conectado';
+      qrAtual = '';
+      console.log('WhatsApp conectado');
+    }
+
+    if (connection === 'close') {
+      const shouldReconnect =
+        lastDisconnect?.error?.output?.statusCode !==
+        DisconnectReason.loggedOut;
+
+      status = shouldReconnect ? 'reconectando' : 'deslogado';
+
+      console.log('ConexÃ£o fechada. Reconectar:', shouldReconnect);
+
+      if (shouldReconnect) {
+        setTimeout(() => conectarWhatsApp(), 5000);
+      }
+    }
+  });
+
+  sock.ev.on('messages.upsert', async ({ messages }) => {
+    for (const msg of messages) {
+      try {
+        if (!msg.message) continue;
+
+        const remetente = msg.key.remoteJid;
+        const isAdmin = msg.key.fromMe;
+        const texto = textoDaMensagem(msg.message);
+        const messageId = msg.key.id || '';
+
+        const comandoProcessado = await entrarNaFila(() =>
+          processarComandos(msg, texto, remetente, isAdmin)
+        );
+
+        if (comandoProcessado) continue;
+
+        const fotoProcessada = await entrarNaFila(() =>
+          processarFotoOperador(msg, remetente)
+        );
+
+        if (fotoProcessada) continue;
+
+        if (isAdmin) continue;
+        if (!texto) continue;
+
+        await entrarNaFila(() =>
+          salvarNaPlanilha({
+            texto,
+            messageId
+          })
+        );
+      } catch (err) {
+        console.error('Erro ao processar mensagem:', err);
+      }
+    }
+  });
+
+  sock.ev.on('messages.update', async (updates) => {
+    for (const update of updates) {
+      try {
+        const id = update.key?.id;
+
+        if (
+          update.update?.message === null ||
+          update.update?.messageStubType
+        ) {
+          const ok = await entrarNaFila(() =>
+            apagarDaPlanilha(id)
+          );
+
+          console.log('Mensagem apagada:', id, ok);
+          continue;
+        }
+
+        const textoEditado = textoDaMensagem(update.update?.message);
+
+        if (textoEditado && id) {
+          await entrarNaFila(async () => {
+            await apagarDaPlanilha(id);
+
+            const salvos = await salvarNaPlanilha({
+              texto: textoEditado,
+              messageId: id
+            });
+
+            console.log('Mensagem editada atualizada:', id, salvos);
+          });
+        }
+      } catch (err) {
+        console.error('Erro em messages.update:', err);
+      }
+    }
+  });
+}
+
+/* ROTAS */
+app.get('/ping', (req, res) => {
+  res.status(200).send('pong');
+});
+
+app.get('/', (req, res) => {
+  res.send(`
+    <h2>WhatsApp â†’ Google Sheets</h2>
+    <p>Status: <b>${status}</b></p>
+    <p><a href="/qr">Abrir QR Code</a></p>
+  `);
+});
+
+app.get('/status', (req, res) => {
+  res.json({
+    status,
+    qr: Boolean(qrAtual),
+    operadoresOnline: operadoresOnline.length,
+    pixGerados: totalPixGerados,
+    pixPagos: totalPixPagos,
+    bancasLiberadas: totalBancasEnviadas,
+    bancasPagasPendentes: bancasPagasPendentes.length,
+    pagamentosPendentes: pagamentosPendentes.size
+  });
+});
+
+app.get('/qr', async (req, res) => {
+  if (!qrAtual) {
+    return res.send(`
+      <h3>Status: ${status}</h3>
+      <p>Nenhum QR disponÃ­vel</p>
+    `);
+  }
+
+  const img = await QRCode.toDataURL(qrAtual);
+
+  res.send(`
+    <h2>Escaneie o QR</h2>
+    <img src="${img}" style="width:320px;height:320px" />
+  `);
+});
+
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
+  conectarWhatsApp();
+});

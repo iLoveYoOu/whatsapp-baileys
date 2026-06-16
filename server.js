@@ -53,7 +53,7 @@ const pagamentosPendentes = new Map();
 const bancasPagasPendentes = [];
 
 const MSG_DEPOSITO_CONFIRMADO =
-`âœ… DEU CERTO! DEPÀ“SITO CONFIRMADO!
+`✅ DEU CERTO! DEPÀ“SITO CONFIRMADO!
 
 âš ï¸ ATENÀ‡ÀƒO - MUITO IMPORTANTE!
 
@@ -349,7 +349,7 @@ async function liberarBancaParaOperador(banca) {
     bancasPagasPendentes.push(banca);
 
     await sock.sendMessage(banca.clienteJid, {
-      text: 'âœ… Pagamento aprovado.\nâš ï¸ Nenhum operador online no momento. Sua banca ficará aguardando atendimento.'
+      text: '✅ Pagamento aprovado.\nâš ï¸ Nenhum operador online no momento. Sua banca ficará aguardando atendimento.'
     });
 
     return { ok: false, pendente: true };
@@ -389,7 +389,7 @@ Após o pagamento confirmado, você poderá enviar a FOTO 2/2.`
   });
 
   await sock.sendMessage(banca.clienteJid, {
-    text: `âœ… Banca liberada para ${nomeOperador}`
+    text: `✅ Banca liberada para ${nomeOperador}`
   });
 
   return { ok: true, operador: nomeOperador };
@@ -749,7 +749,7 @@ async function processarComandos(msg, texto, remetente, isAdmin) {
   if (comando === '/menu' || comando === '/ajuda') {
     await sock.sendMessage(remetente, {
       text:
-`ðŸ“‹ MENU DE COMANDOS
+`📋 MENU DE COMANDOS
 
 ðŸ‘¨â€ðŸ’» OPERADORES
 /opon - entrar na fila
@@ -762,7 +762,7 @@ async function processarComandos(msg, texto, remetente, isAdmin) {
 /clearfila - limpar fila
 /kickop 1 - remover operador
 
-ðŸ’° BANCAS
+💰 BANCAS
 /next - liberar banca manual
 /pix 500 - gerar Pix
 /500 - enviar valor para operador
@@ -781,7 +781,7 @@ Limite: 2 fotos por banca`
     }
 
     await sock.sendMessage(remetente, {
-      text: 'âœ… Status atualizado: online'
+      text: '✅ Status atualizado: online'
     });
 
     await entregarBancasPendentes();
@@ -811,7 +811,7 @@ Limite: 2 fotos por banca`
       : 'Nenhum operador online.';
 
     await sock.sendMessage(remetente, {
-      text: `ðŸ“‹ Operadores online:\n\n${lista}`
+      text: `📋 Operadores online:\n\n${lista}`
     });
 
     return true;
@@ -942,7 +942,7 @@ Pagamentos pendentes limpos`
 
     if (resultado.ok) {
       await sock.sendMessage(remetente, {
-        text: `âœ… Banca liberada para ${resultado.operador}`
+        text: `✅ Banca liberada para ${resultado.operador}`
       });
     }
 
@@ -1070,7 +1070,7 @@ ${err.response?.data?.message || err.message}`
       await sock.sendMessage(remetente, {
         image: Buffer.from(pix.qr_code_base64, 'base64'),
         caption:
-`ðŸ’° PIX GERADO
+`💰 PIX GERADO
 
 Valor: R$ ${valor.toFixed(2).replace('.', ',')}
 
@@ -1080,7 +1080,7 @@ Valor: R$ ${valor.toFixed(2).replace('.', ',')}
 
     if (pix.qr_code) {
       await sock.sendMessage(remetente, {
-        text: 'ðŸ“‹ PIX COPIA E COLA:'
+        text: '📋 PIX COPIA E COLA:'
       });
 
       await sock.sendMessage(remetente, {
@@ -1089,7 +1089,7 @@ Valor: R$ ${valor.toFixed(2).replace('.', ',')}
     }
 
     await sock.sendMessage(remetente, {
-      text: `âœ… Pix criado. ID: ${pix.id}\nAssim que aprovar, a banca será liberada automaticamente.`
+      text: `✅ Pix criado. ID: ${pix.id}\nAssim que aprovar, a banca será liberada automaticamente.`
     });
 
     return true;
@@ -1117,11 +1117,11 @@ Valor: R$ ${valor.toFixed(2).replace('.', ',')}
     const valor = valorDoComando(comando);
 
     await sock.sendMessage(banca.operadorJid, {
-      text: `ðŸ’° Valor fechado: R$ ${valor}`
+      text: `💰 Valor fechado: R$ ${valor}`
     });
 
     await sock.sendMessage(remetente, {
-      text: `ðŸ’° Valor enviado para ${banca.operadorNome}`
+      text: `💰 Valor enviado para ${banca.operadorNome}`
     });
 
     return true;

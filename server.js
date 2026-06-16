@@ -1235,11 +1235,7 @@ async function conectarWhatsApp() {
 
 app.post('/pix-test', async (req, res) => {
   try {
-    const { titulo, texto } = req.body;
-
-    console.log('=== PIX TESTE MACRODROID ===');
-    console.log('Título:', titulo);
-    console.log('Texto:', texto);
+    const { texto } = req.body;
 
     if (!sock) {
       return res.status(503).json({
@@ -1248,17 +1244,25 @@ app.post('/pix-test', async (req, res) => {
       });
     }
 
+    const mensagem = String(texto || '');
+
+    // Extrai nome
+    const nomeMatch = mensagem.match(/^(.*?) te enviou um Pix/i);
+
+    // Extrai valor
+    const valorMatch = mensagem.match(/R\$\s*([\d.,]+)/i);
+
+    const nome = nomeMatch?.[1]?.trim() || 'Desconhecido';
+    const valor = valorMatch?.[1]?.trim() || '0,00';
+
     await sock.sendMessage(
-      '5511979501263@s.whatsapp.net',
+      '5511961501252@s.whatsapp.net',
       {
         text:
-`🧪 TESTE MACRODROID
+`💰 PIX RECEBIDO
 
-📲 Título:
-${titulo || 'Sem título'}
-
-💬 Texto:
-${texto || 'Sem texto'}`
+👤 ${nome}
+💵 R$ ${valor}`
       }
     );
 

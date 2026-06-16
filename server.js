@@ -170,10 +170,6 @@ async function obterTokenCora() {
   return resp.data.access_token;
 }
 
-async function gerarPixCora(valor) {
-  const token = await obterTokenCora();
-
-  const valorCentavos = Math.round(Number(valor) * 100);
 async function consultarFaturaCora(invoiceId) {
   const token = await obterTokenCora();
 
@@ -191,6 +187,12 @@ async function consultarFaturaCora(invoiceId) {
 
   return resp.data;
 }
+
+async function gerarPixCora(valor) {
+  const token = await obterTokenCora();
+
+  const valorCentavos = Math.round(Number(valor) * 100);
+
   if (!valorCentavos || valorCentavos < 500) {
     throw new Error('Valor mínimo da Cora é R$ 5,00.');
   }
@@ -244,10 +246,15 @@ async function consultarFaturaCora(invoiceId) {
     }
   );
 
-const emv =
-  resp.data?.payment_options?.pix?.emv ||
-  resp.data?.pix?.emv;
-  const qrUrl = resp.data?.payment_options?.bank_slip?.url;
+  const emv =
+    resp.data?.payment_options?.pix?.emv ||
+    resp.data?.pix?.emv;
+
+  const qrUrl =
+    resp.data?.payment_options?.bank_slip?.url ||
+    resp.data?.payment_options?.pix?.url ||
+    '';
+
   const invoiceId = resp.data?.id || resp.data?.code || '';
 
   if (!emv) {

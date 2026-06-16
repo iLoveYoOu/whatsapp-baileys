@@ -1,4 +1,4 @@
-﻿require('dotenv').config();
+require('dotenv').config();
 const fs = require('fs');
 const https = require('https');
 const axios = require('axios');
@@ -174,7 +174,23 @@ async function gerarPixCora(valor) {
   const token = await obterTokenCora();
 
   const valorCentavos = Math.round(Number(valor) * 100);
+async function consultarFaturaCora(invoiceId) {
+  const token = await obterTokenCora();
 
+  const resp = await axios.get(
+    `https://matls-clients.api.cora.com.br/v2/invoices/${invoiceId}`,
+    {
+      httpsAgent: criarCoraAgent(),
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json'
+      },
+      timeout: 30000
+    }
+  );
+
+  return resp.data;
+}
   if (!valorCentavos || valorCentavos < 500) {
     throw new Error('Valor mínimo da Cora é R$ 5,00.');
   }
@@ -393,6 +409,40 @@ setInterval(async () => {
 
   for (const [paymentId, banca] of pagamentosPendentes.entries()) {
     try {
+            if (banca.tipo === 'cora') {
+        const data = await consultarFaturaCora(banca.invoiceId);
+        const statusCora = String(data.status || '').toUpperCase();
+
+        if (statusCora === 'PAID') {
+          pagamentosPendentes.delete(paymentId);
+          totalPixPagos++;
+
+          if (banca.banca) {
+            banca.banca.pagamentoConfirmado = true;
+
+            await sock.sendMessage(banca.clienteJid, {
+              text: MSG_DEPOSITO_CONFIRMADO
+            });
+
+            if (banca.banca.operadorJid) {
+              await sock.sendMessage(banca.banca.operadorJid, {
+                text:
+`💰 PAGAMENTO CONFIRMADO
+
+Banca liberada.
+
+Agora você pode enviar a FOTO 2/2.`
+              });
+            }
+          } else {
+            await sock.sendMessage(banca.clienteJid, {
+              text: '✅ Pagamento confirmado.'
+            });
+          }
+        }
+
+        continue;
+      }
       const data = await consultarPagamentoMercadoPago(paymentId);
       if (!data) continue;
 
@@ -911,6 +961,19 @@ if (comando.startsWith('/pixcora')) {
 
   try {
     const pix = await gerarPixCora(valor);
+    
+    const quoted = getQuotedInfo(msg.message);
+const banca = quoted.stanzaId
+  ? bancasPorMensagemOriginal.get(quoted.stanzaId)
+  : null;
+
+pagamentosPendentes.set(String(pix.id), {
+  tipo: 'cora',
+  invoiceId: pix.id,
+  valor,
+  clienteJid: remetente,
+  banca
+});
 
     await sock.sendMessage(remetente, {
       text:

@@ -925,11 +925,17 @@ Valor: R$ ${valor.toFixed(2).replace('.', ',')}
       text: pix.emv
     });
 
-    if (pix.qrUrl) {
-      await sock.sendMessage(remetente, {
-        text: `🔗 QR Code Cora:\n${pix.qrUrl}`
-      });
-    }
+   if (pix.qrUrl) {
+  await sock.sendMessage(remetente, {
+    image: { url: pix.qrUrl },
+    caption:
+`💰 PIX CORA GERADO
+
+Valor: R$ ${valor.toFixed(2).replace('.', ',')}
+
+⏳ Aguardando pagamento...`
+  });
+}
 
     await sock.sendMessage(remetente, {
       text: `✅ Pix Cora criado.\nID: ${pix.id || 'sem id'}`

@@ -53,23 +53,23 @@ const pagamentosPendentes = new Map();
 const bancasPagasPendentes = [];
 
 const MSG_DEPOSITO_CONFIRMADO =
-`âœ… DEU CERTO! DEPÃ€â€œSITO CONFIRMADO!
+`✅ DEU CERTO! DEPÓSITO CONFIRMADO!
 
-Ã¢Å¡Â Ã¯Â¸Â ATENÃ€â€¡Ã€Æ’O - MUITO IMPORTANTE!
+⚠️ ATENÇÃO - MUITO IMPORTANTE!
 
-Meu nÃºmero de atendimento pode cair a qualquer momento!
+Meu número de atendimento pode cair a qualquer momento!
 
-Se a mensagem NÃ€Æ’O CHEGAR, nÃ£o fique sem resposta!
+Se a mensagem NÃO CHEGAR, não fique sem resposta!
 
-Ã°Å¸â€œÅ¾ CHAMA DIRETO NO NÃ€Å¡MERO RESERVA:
+📲 CHAMA DIRETO NO NÚMERO RESERVA:
 48 98425-5049
 
-Ã°Å¸â€¢Ëœ HorÃ¡rio de atendimento:
-Todos os dias das 09:00 Ã€Â s 00:30
+🕐 Horário de atendimento:
+Todos os dias das 09:00 às 00:30
 
-Ã°Å¸â„¢Â Obrigado pela confianÃ§a!
+🙏 Obrigado pela confiança!
 
-Att: Equipe Meia do LucÃ£o`;
+Att: Equipe Meia do Lucão`;
 
 function operadorNome(jid) {
   const index = operadoresOnline.indexOf(jid);
@@ -952,13 +952,13 @@ Pagamentos pendentes limpos`
 
     return true;
   }
-if (comando.startsWith('/pixcora')) {
+if (comando.startsWith('/pix ')) {
   const partes = comando.split(/\s+/);
   const valor = Number(String(partes[1] || '').replace(',', '.'));
 
   if (!valor || valor < 5) {
     await sock.sendMessage(remetente, {
-      text: 'Use: /pixcora 5\nValor mÃ­nimo: R$ 5,00'
+      text: 'Use: /pix 5\nValor mÃ­nimo: R$ 5,00'
     });
     return true;
   }
@@ -981,7 +981,7 @@ pagamentosPendentes.set(String(pix.id), {
 
     await sock.sendMessage(remetente, {
       text:
-`ðŸ’° PIX CORA GERADO
+`ðŸ’° PIX GERADO
 
 Valor: R$ ${valor.toFixed(2).replace('.', ',')}
 
@@ -996,7 +996,7 @@ Valor: R$ ${valor.toFixed(2).replace('.', ',')}
   await sock.sendMessage(remetente, {
     image: { url: pix.qrUrl },
     caption:
-`ðŸ’° PIX CORA GERADO
+`ðŸ’° PIX GERADO
 
 Valor: R$ ${valor.toFixed(2).replace('.', ',')}
 
@@ -1005,7 +1005,7 @@ Valor: R$ ${valor.toFixed(2).replace('.', ',')}
 }
 
     await sock.sendMessage(remetente, {
-      text: `âœ… Pix Cora criado.\nID: ${pix.id || 'sem id'}`
+      text: `âœ… Pix criado.\nID: ${pix.id || 'sem id'}`
     });
   } catch (err) {
     console.error('Erro Pix Cora:', err.response?.data || err.message);
@@ -1020,13 +1020,13 @@ ${err.response?.data?.message || err.message}`
 
   return true;
 }
-  if (comando.startsWith('/pix')) {
+  if (comando.startsWith('/pixmp')) {
     const partes = comando.split(/\s+/);
     const valor = Number(String(partes[1] || '').replace(',', '.'));
 
     if (!valor || valor <= 0) {
       await sock.sendMessage(remetente, {
-        text: 'Use: /pix 500'
+        text: 'Use: /pixmp 500'
       });
       return true;
     }
@@ -1399,4 +1399,5 @@ app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
   conectarWhatsApp();
 });
+
 

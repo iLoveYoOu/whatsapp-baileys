@@ -53,23 +53,23 @@ const pagamentosPendentes = new Map();
 const bancasPagasPendentes = [];
 
 const MSG_DEPOSITO_CONFIRMADO =
-`âœ… DEU CERTO! DEPÃ“SITO CONFIRMADO!
+`âœ… DEU CERTO! DEPÀ“SITO CONFIRMADO!
 
-âš ï¸ ATENÃ‡ÃƒO - MUITO IMPORTANTE!
+âš ï¸ ATENÀ‡ÀƒO - MUITO IMPORTANTE!
 
-Meu nÃºmero de atendimento pode cair a qualquer momento!
+Meu número de atendimento pode cair a qualquer momento!
 
-Se a mensagem NÃƒO CHEGAR, nÃ£o fique sem resposta!
+Se a mensagem NÀƒO CHEGAR, não fique sem resposta!
 
-ðŸ“ž CHAMA DIRETO NO NÃšMERO RESERVA:
+ðŸ“ž CHAMA DIRETO NO NÀšMERO RESERVA:
 48 98425-5049
 
-ðŸ•˜ HorÃ¡rio de atendimento:
-Todos os dias das 09:00 Ã s 00:30
+ðŸ•˜ Horário de atendimento:
+Todos os dias das 09:00 À s 00:30
 
-ðŸ™ Obrigado pela confianÃ§a!
+ðŸ™ Obrigado pela confiança!
 
-Att: Equipe Meia do LucÃ£o`;
+Att: Equipe Meia do Lucão`;
 
 function operadorNome(jid) {
   const index = operadoresOnline.indexOf(jid);
@@ -264,7 +264,7 @@ const emv =
 /* MERCADO PAGO ORDERS API */
 async function gerarPixMercadoPago(valor, descricao) {
   if (!MP_TOKEN) {
-    throw new Error('MERCADO_PAGO_ACCESS_TOKEN nÃ£o configurado no Render.');
+    throw new Error('MERCADO_PAGO_ACCESS_TOKEN não configurado no Render.');
   }
 
   const valorFormatado = Number(valor).toFixed(2);
@@ -323,7 +323,7 @@ async function gerarPixMercadoPago(valor, descricao) {
 
 async function consultarPagamentoMercadoPago(orderId) {
   if (!MP_TOKEN) {
-    throw new Error('MERCADO_PAGO_ACCESS_TOKEN nÃ£o configurado no Render.');
+    throw new Error('MERCADO_PAGO_ACCESS_TOKEN não configurado no Render.');
   }
 
   const resp = await fetch(`https://api.mercadopago.com/v1/orders/${orderId}`, {
@@ -349,7 +349,7 @@ async function liberarBancaParaOperador(banca) {
     bancasPagasPendentes.push(banca);
 
     await sock.sendMessage(banca.clienteJid, {
-      text: 'âœ… Pagamento aprovado.\nâš ï¸ Nenhum operador online no momento. Sua banca ficarÃ¡ aguardando atendimento.'
+      text: 'âœ… Pagamento aprovado.\nâš ï¸ Nenhum operador online no momento. Sua banca ficará aguardando atendimento.'
     });
 
     return { ok: false, pendente: true };
@@ -480,7 +480,7 @@ Agora você pode enviar a FOTO 2/2.`
         pagamentosPendentes.delete(paymentId);
 
         await sock.sendMessage(banca.clienteJid, {
-          text: `âš ï¸ Pagamento nÃ£o aprovado. Status: ${data.status}`
+          text: `âš ï¸ Pagamento não aprovado. Status: ${data.status}`
         });
       }
     } catch (err) {
@@ -573,7 +573,7 @@ async function garantirAba(sheets, aba) {
   );
 
   if (!existe) {
-    throw new Error(`Aba nÃ£o encontrada: ${aba}`);
+    throw new Error(`Aba não encontrada: ${aba}`);
   }
 }
 
@@ -627,7 +627,7 @@ async function proximaLinhaColunaB(sheets, aba) {
     if (!colunaB) return i + 2;
   }
 
-  throw new Error('NÃ£o encontrei linha vazia antes do TOTAL.');
+  throw new Error('Não encontrei linha vazia antes do TOTAL.');
 }
 
 async function salvarNaPlanilha({ texto, messageId }) {
@@ -757,7 +757,7 @@ async function processarComandos(msg, texto, remetente, isAdmin) {
 
 ðŸ‘‘ ADMIN
 /fila - ver operadores online
-/stats - estatÃ­sticas
+/stats - estatísticas
 /reset - resetar sistema
 /clearfila - limpar fila
 /kickop 1 - remover operador
@@ -842,7 +842,7 @@ Limite: 2 fotos por banca`
 
     if (!numero || numero < 1 || numero > operadoresOnline.length) {
       await sock.sendMessage(remetente, {
-        text: 'Operador nÃ£o encontrado.'
+        text: 'Operador não encontrado.'
       });
       return true;
     }
@@ -867,14 +867,14 @@ Limite: 2 fotos por banca`
 
     await sock.sendMessage(remetente, {
       text:
-`ðŸ“Š EstatÃ­sticas
+`ðŸ“Š Estatísticas
 
 Pix gerados: ${totalPixGerados}
 Pix pagos: ${totalPixPagos}
 Bancas liberadas: ${totalBancasEnviadas}
 Bancas pagas pendentes: ${bancasPagasPendentes.length}
 Operadores online: ${operadoresOnline.length}
-PrÃ³ximo da fila: ${proximo}`
+Próximo da fila: ${proximo}`
     });
 
     return true;
@@ -896,8 +896,8 @@ PrÃ³ximo da fila: ${proximo}`
 `â™»ï¸ Sistema resetado
 
 Fila zerada
-Ãndice reiniciado
-Bancas temporÃ¡rias limpas
+Àndice reiniciado
+Bancas temporárias limpas
 Pagamentos pendentes limpos`
     });
 
@@ -925,7 +925,7 @@ Pagamentos pendentes limpos`
 
     if (!textoBanca) {
       await sock.sendMessage(remetente, {
-        text: 'âš ï¸ NÃ£o consegui ler a banca respondida.'
+        text: 'âš ï¸ Não consegui ler a banca respondida.'
       });
       return true;
     }
@@ -1040,14 +1040,14 @@ ${err.response?.data?.message || err.message}`
 
     if (!textoBanca) {
       await sock.sendMessage(remetente, {
-        text: 'âš ï¸ NÃ£o consegui ler a banca respondida.'
+        text: 'âš ï¸ Não consegui ler a banca respondida.'
       });
       return true;
     }
 
     const pix = await gerarPixMercadoPago(
       valor,
-      `Banca Meia do LucÃ£o - R$ ${valor}`
+      `Banca Meia do Lucão - R$ ${valor}`
     );
 
     totalPixGerados++;
@@ -1089,7 +1089,7 @@ Valor: R$ ${valor.toFixed(2).replace('.', ',')}
     }
 
     await sock.sendMessage(remetente, {
-      text: `âœ… Pix criado. ID: ${pix.id}\nAssim que aprovar, a banca serÃ¡ liberada automaticamente.`
+      text: `âœ… Pix criado. ID: ${pix.id}\nAssim que aprovar, a banca será liberada automaticamente.`
     });
 
     return true;
@@ -1109,7 +1109,7 @@ Valor: R$ ${valor.toFixed(2).replace('.', ',')}
 
     if (!banca) {
       await sock.sendMessage(remetente, {
-        text: 'âš ï¸ Esta banca ainda nÃ£o foi liberada para operador.'
+        text: 'âš ï¸ Esta banca ainda não foi liberada para operador.'
       });
       return true;
     }
@@ -1203,7 +1203,7 @@ async function conectarWhatsApp() {
     if (qr) {
       qrAtual = qr;
       status = 'aguardando_qr';
-      console.log('QR disponÃ­vel em /qr');
+      console.log('QR disponível em /qr');
     }
 
     if (connection === 'open') {
@@ -1219,7 +1219,7 @@ async function conectarWhatsApp() {
 
       status = shouldReconnect ? 'reconectando' : 'deslogado';
 
-      console.log('ConexÃ£o fechada. Reconectar:', shouldReconnect);
+      console.log('Conexão fechada. Reconectar:', shouldReconnect);
 
       if (shouldReconnect) {
         setTimeout(() => conectarWhatsApp(), 5000);
@@ -1356,7 +1356,7 @@ app.get('/ping', (req, res) => {
 
 app.get('/', (req, res) => {
   res.send(`
-    <h2>WhatsApp â†’ Google Sheets</h2>
+    <h2>WhatsApp → Google Sheets</h2>
     <p>Status: <b>${status}</b></p>
     <p><a href="/qr">Abrir QR Code</a></p>
   `);
@@ -1379,7 +1379,7 @@ app.get('/qr', async (req, res) => {
   if (!qrAtual) {
     return res.send(`
       <h3>Status: ${status}</h3>
-      <p>Nenhum QR disponÃ­vel</p>
+      <p>Nenhum QR disponível</p>
     `);
   }
 

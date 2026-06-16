@@ -370,7 +370,7 @@ async function liberarBancaParaOperador(banca) {
 
   const envio = await sock.sendMessage(operador, {
     text:
-`Ã°Å¸â€œÂ¥ Nova banca liberada
+📥 Nova banca liberada
 
 Valor: R$ ${banca.valor}
 
@@ -378,7 +378,7 @@ ${banca.textoBanca}
 
 📸 Envie apenas a FOTO 1/2.
 
-Após o pagamento confirmado, você poderá enviar a FOTO 2/2.`
+Após o pagamento confirmado, você poderá enviar a FOTO 2/2.
   });
 
   banca.operadorJid = operador;

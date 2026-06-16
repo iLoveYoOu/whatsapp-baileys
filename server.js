@@ -369,17 +369,12 @@ async function liberarBancaParaOperador(banca) {
   totalBancasEnviadas++;
 
   const envio = await sock.sendMessage(operador, {
-    text:
-📥 Nova banca liberada
-
-Valor: R$ ${banca.valor}
-
-${banca.textoBanca}
-
-📸 Envie apenas a FOTO 1/2.
-
-Após o pagamento confirmado, você poderá enviar a FOTO 2/2.
-  });
+  text: 'Nova banca liberada' +
+        '\n\nValor: R$ ' + banca.valor +
+        '\n\n' + banca.textoBanca +
+        '\n\nEnvie apenas a FOTO 1/2.' +
+        '\n\nApos o pagamento confirmado, voce podera enviar a FOTO 2/2.'
+});
 
   banca.operadorJid = operador;
   banca.operadorNome = nomeOperador;
@@ -1392,5 +1387,9 @@ app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
   conectarWhatsApp();
 });
+
+
+
+
 
 

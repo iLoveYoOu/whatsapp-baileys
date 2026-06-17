@@ -1,4 +1,4 @@
-require('dotenv').config();
+﻿require('dotenv').config();
 
 const express = require('express');
 const QRCode = require('qrcode');
@@ -26,20 +26,28 @@ let status = 'iniciando';
 
 const lucroTabela = {
   300: 60,
+301: 100,
   350: 60,
   400: 60,
+401: 120,
   450: 60,
   500: 60,
+501: 140,
   550: 70,
   600: 80,
+601: 170,
   650: 90,
   700: 90,
+701: 200,
   750: 100,
   800: 100,
+801: 230,
   850: 110,
   900: 110,
+901: 260,
   950: 120,
   1000: 120,
+1001: 280,
   1050: 125,
   1100: 130,
   1150: 135,
@@ -148,7 +156,7 @@ async function garantirAba(sheets, aba) {
   );
 
   if (!existe) {
-    throw new Error(`Aba não encontrada: ${aba}`);
+    throw new Error(`Aba nÃ£o encontrada: ${aba}`);
   }
 }
 
@@ -345,7 +353,7 @@ async function conectarWhatsApp() {
     if (qr) {
       qrAtual = qr;
       status = 'aguardando_qr';
-      console.log('QR disponível');
+      console.log('QR disponÃ­vel');
     }
 
     if (connection === 'open') {
@@ -430,7 +438,7 @@ async function conectarWhatsApp() {
 
 app.get('/', (req, res) => {
   res.send(`
-    <h2>WhatsApp → Google Sheets</h2>
+    <h2>WhatsApp â†’ Google Sheets</h2>
     <p>Status: <b>${status}</b></p>
     <p><a href="/qr">Abrir QR Code</a></p>
   `);
@@ -447,7 +455,7 @@ app.get('/qr', async (req, res) => {
   if (!qrAtual) {
     return res.send(`
       <h3>Status: ${status}</h3>
-      <p>Nenhum QR disponível</p>
+      <p>Nenhum QR disponÃ­vel</p>
     `);
   }
 

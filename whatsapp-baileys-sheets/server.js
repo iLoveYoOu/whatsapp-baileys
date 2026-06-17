@@ -224,9 +224,31 @@ async function salvarNaPlanilha({ texto, messageId }) {
 
     if (!deposito || !sacado || !casa) continue;
 
-    const lucro = lucroTabela[deposito] || 0;
+    const lucroEspecial = {
+  301: 100,
+  401: 120,
+  501: 140,
+  601: 170,
+  701: 200,
+  801: 230,
+  901: 260,
+  1001: 280
+};
 
-    const banca = deposito - lucro;
+const bancaEspecial = {
+  301: 200,
+  401: 280,
+  501: 360,
+  601: 430,
+  701: 500,
+  801: 570,
+  901: 640,
+  1001: 720
+};
+
+const lucro = lucroEspecial[deposito] || lucroTabela[deposito] || 0;
+
+    const banca = bancaEspecial[deposito] || (deposito - lucro);
 
     const idFinal = `${messageId || 'semid'}_${i}_${Date.now()}`;
 
@@ -472,3 +494,4 @@ app.listen(PORT, () => {
 
   conectarWhatsApp();
 });
+

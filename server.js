@@ -823,6 +823,22 @@ Limite: 2 fotos por banca`
     return true;
   }
 
+  
+  if (comando === '/grupos') {
+    const grupos = await sock.groupFetchAllParticipating();
+
+    let lista = '';
+
+    for (const grupo of Object.values(grupos)) {
+      lista += `📌 ${grupo.subject}` + "\n" + `🆔 ${grupo.id}` + "\n\n";
+    }
+
+    await sock.sendMessage(remetente, {
+      text: lista || 'Nenhum grupo encontrado.'
+    });
+
+    return true;
+  }
   if (!isAdmin) return false;
 
   if (comando === '/fila') {
@@ -1412,6 +1428,7 @@ app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
   conectarWhatsApp();
 });
+
 
 
 

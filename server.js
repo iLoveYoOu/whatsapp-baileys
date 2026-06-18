@@ -50,7 +50,7 @@ let totalPixPagos = 0;
 
 const DESTINOS_PIX = {
   arthur: '5511961501252@s.whatsapp.net',
-  lucao: '5548984255049@s.whatsapp.net',
+  lucao: '120363426172706411@g.us',
   gordao: '5524999205460@s.whatsapp.net'
 };
 
@@ -1428,6 +1428,7 @@ app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
   conectarWhatsApp();
 });
+
 
 
 

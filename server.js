@@ -54,6 +54,8 @@ const DESTINOS_PIX = {
   gordao: '5524999205460@s.whatsapp.net'
 };
 
+const historicoPixRecebidos = [];
+
 const bancasPorMensagemOriginal = new Map();
 const bancasPorMensagemOperador = new Map();
 const pagamentosPendentes = new Map();
@@ -839,6 +841,32 @@ Limite: 2 fotos por banca`
 
     return true;
   }
+  
+  if (comando === '/pixrel') {
+    await sock.sendMessage(remetente, {
+      text: gerarRelatorioPix('📊 RELATÓRIO PIX')
+    });
+
+    return true;
+  }
+
+  if (comando === '/pixfechar') {
+    const relatorio = gerarRelatorioPix('📊 FECHAMENTO PIX');
+
+    await sock.sendMessage(remetente, {
+      text: relatorio + "\n\n✅ Dia encerrado"
+    });
+
+    const dataHoje = dataPixBR();
+
+    for (let i = historicoPixRecebidos.length - 1; i >= 0; i--) {
+      if (historicoPixRecebidos[i].data === dataHoje) {
+        historicoPixRecebidos.splice(i, 1);
+      }
+    }
+
+    return true;
+  }
   if (!isAdmin) return false;
 
   if (comando === '/fila') {
@@ -1331,6 +1359,82 @@ async function conectarWhatsApp() {
   });
 }
 
+function numeroPixBR(valor) {
+  return Number(String(valor || '0').replace(/\./g, '').replace(',', '.')) || 0;
+}
+
+function moedaBR(valor) {
+  return Number(valor || 0).toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
+}
+
+function dataPixBR() {
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  }).format(new Date());
+}
+
+function horaPixBR() {
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(new Date());
+}
+
+function gerarRelatorioPix(titulo) {
+  const dataHoje = dataPixBR();
+  const itens = historicoPixRecebidos.filter(p => p.data === dataHoje);
+
+  if (!itens.length) {
+    return `${titulo}
+
+📅 ${dataHoje}
+
+Nenhum PIX registrado até agora.`;
+  }
+
+  const porCliente = {};
+
+  for (const p of itens) {
+    if (!porCliente[p.cliente]) {
+      porCliente[p.cliente] = { qtd: 0, total: 0 };
+    }
+
+    porCliente[p.cliente].qtd++;
+    porCliente[p.cliente].total += p.valorNumero;
+  }
+
+  let totalGeral = 0;
+  let qtdGeral = 0;
+
+  let texto = `${titulo}
+
+📅 ${dataHoje}
+
+`;
+
+  for (const [cliente, dados] of Object.entries(porCliente)) {
+    totalGeral += dados.total;
+    qtdGeral += dados.qtd;
+
+    texto += `👤 ${cliente}
+Qtd: ${dados.qtd}
+Total: ${moedaBR(dados.total)}
+
+`;
+  }
+
+  texto += `💰 TOTAL GERAL: ${moedaBR(totalGeral)}
+🔢 QTD GERAL: ${qtdGeral}`;
+
+  return texto;
+}
 app.post('/pix/:cliente', async (req, res) => {
   try {
     const cliente = String(req.params.cliente || '').toLowerCase();
@@ -1359,6 +1463,16 @@ app.post('/pix/:cliente', async (req, res) => {
     const valor =
       mensagem.match(/R\$\s*([\d.,]+)/i)?.[1]?.trim()
       || '0,00';
+
+    historicoPixRecebidos.push({
+      data: dataPixBR(),
+      hora: horaPixBR(),
+      cliente,
+      nome,
+      valor,
+      valorNumero: numeroPixBR(valor),
+      texto: mensagem
+    });
 
     await sock.sendMessage(destino, {
       text:
@@ -1428,6 +1542,7 @@ app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
   conectarWhatsApp();
 });
+
 
 
 

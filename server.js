@@ -650,17 +650,31 @@ async function salvarNaPlanilha({ texto, messageId }) {
     const sacado = Number(sacadoTxt);
 
     if (depositoTxt === '' || sacadoTxt === '' || !casa) continue;
-    if (Number.isNaN(deposito) || Number.isNaN(sacado)) continue;
+    if (Number.isNaN(deposito) || Number.isNaN(sacado)) continue;    const regrasFixas = {
+      301: { banca: 200, lucro: 100 },
+      401: { banca: 280, lucro: 120 },
+      501: { banca: 360, lucro: 140 },
+      601: { banca: 430, lucro: 170 },
+      701: { banca: 500, lucro: 200 },
+      801: { banca: 570, lucro: 230 },
+      901: { banca: 640, lucro: 260 },
+      1001: { banca: 720, lucro: 280 }
+    };
 
-    const lucro = calcularLucro(deposito);
+    const regraFixa = regrasFixas[deposito];
+
+    const lucro = regraFixa ? regraFixa.lucro : calcularLucro(deposito);
 
     const faixaBase =
       Math.floor((deposito - 500) / 50) * 50 + 500;
 
-    const banca =
-      faixaBase > 0
-        ? faixaBase - lucro
-        : deposito - lucro;
+    const banca = regraFixa
+      ? regraFixa.banca
+      : (
+          faixaBase > 0
+            ? faixaBase - lucro
+            : deposito - lucro
+        );
 
     const idFinal =
       `${messageId || 'semid'}_${i}_${Date.now()}_${Math.floor(Math.random() * 999999)}`;
@@ -1387,6 +1401,7 @@ app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
   conectarWhatsApp();
 });
+
 
 
 

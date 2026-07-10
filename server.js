@@ -818,6 +818,40 @@ async function apagarDaPlanilha(messageId) {
 }
 
 /* COMANDOS */
+
+async function mensagemDeAdmin(msg) {
+  // O próprio número conectado ao Baileys sempre é admin
+  if (msg?.key?.fromMe) return true;
+
+  const grupoJid = msg?.key?.remoteJid || '';
+
+  // Fora de grupo, outros números não recebem permissão administrativa
+  if (!grupoJid.endsWith('@g.us')) return false;
+
+  const autorJid =
+    msg?.key?.participant ||
+    msg?.participant ||
+    '';
+
+  if (!autorJid) return false;
+
+  try {
+    const metadata = await sock.groupMetadata(grupoJid);
+
+    const participante = metadata.participants.find(p =>
+      p.id === autorJid ||
+      p.lid === autorJid ||
+      p.phoneNumber === autorJid
+    );
+
+    return participante?.admin === 'admin' ||
+           participante?.admin === 'superadmin';
+  } catch (err) {
+    console.error('Erro ao verificar admin do grupo:', err.message);
+    return false;
+  }
+}
+
 async function processarComandos(msg, texto, remetente, isAdmin) {
   const comando = String(texto || '').trim().toLowerCase();
 
@@ -1481,7 +1515,7 @@ async function conectarWhatsApp() {
         if (!msg.message) continue;
 
         const remetente = msg.key.remoteJid;
-        const isAdmin = msg.key.fromMe;
+        const isAdmin = await mensagemDeAdmin(msg);
         const texto = textoDaMensagem(msg.message);
         const messageId = msg.key.id || '';
 
@@ -1753,6 +1787,7 @@ app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
   conectarWhatsApp();
 });
+
 
 
 

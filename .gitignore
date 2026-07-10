@@ -2,4 +2,4 @@ certs/
 *.pem
 *.key
 *.zip
-server_backup_*.js
+server_backup_*.jsblacklist.json

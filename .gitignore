@@ -3,3 +3,4 @@ certs/
 *.key
 *.zip
 server_backup_*.jsblacklist.json
+backups-locais/

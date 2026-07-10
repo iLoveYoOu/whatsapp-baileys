@@ -130,6 +130,59 @@ function textoDaQuotedMessage(quotedMessage) {
   return '';
 }
 
+
+/* BLACKLIST PIX */
+const fsBlacklist = require('fs');
+
+const BLACKLIST_PATH = `${__dirname}/blacklist.json`;
+
+function normalizarNomeBlacklist(nome) {
+  return String(nome || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function carregarBlacklist() {
+  try {
+    if (!fsBlacklist.existsSync(BLACKLIST_PATH)) {
+      fsBlacklist.writeFileSync(BLACKLIST_PATH, '[]', 'utf8');
+      return [];
+    }
+
+    const conteudo = fsBlacklist.readFileSync(BLACKLIST_PATH, 'utf8');
+    const lista = JSON.parse(conteudo || '[]');
+
+    return Array.isArray(lista) ? lista : [];
+  } catch (err) {
+    console.error('Erro ao carregar blacklist:', err);
+    return [];
+  }
+}
+
+function salvarBlacklist(lista) {
+  fsBlacklist.writeFileSync(
+    BLACKLIST_PATH,
+    JSON.stringify(lista, null, 2),
+    'utf8'
+  );
+}
+
+function extrairNomePix(texto) {
+  const match = String(texto || '').match(/👤\s*(.+)/i);
+  return match ? String(match[1]).trim() : '';
+}
+
+function buscarNaBlacklist(nome) {
+  const nomeNormalizado = normalizarNomeBlacklist(nome);
+
+  return carregarBlacklist().find(
+    item => normalizarNomeBlacklist(item.nome) === nomeNormalizado
+  );
+}
+
 async function baixarImagem(message) {
   const stream = await downloadContentFromMessage(message.imageMessage, 'image');
   let buffer = Buffer.from([]);
@@ -869,6 +922,144 @@ Limite: 2 fotos por banca`
   }
   if (!isAdmin) return false;
 
+  if (comando === '/addblacklist') {
+    const quoted = getQuotedInfo(msg.message);
+    const textoRespondido = textoDaQuotedMessage(quoted.quotedMessage);
+    const nome = extrairNomePix(textoRespondido);
+
+    if (!quoted.stanzaId || !nome) {
+      await sock.sendMessage(remetente, {
+        text:
+`⚠️ Responda a uma mensagem de PIX RECEBIDO com:
+
+/addblacklist`
+      });
+
+      return true;
+    }
+
+    const lista = carregarBlacklist();
+    const jaExiste = lista.some(
+      item => normalizarNomeBlacklist(item.nome) === normalizarNomeBlacklist(nome)
+    );
+
+    if (jaExiste) {
+      await sock.sendMessage(remetente, {
+        text: `⚠️ ${nome} já está na blacklist.`
+      });
+
+      return true;
+    }
+
+    lista.push({
+      nome,
+      motivo: 'Fraude',
+      data: new Date().toISOString(),
+      adicionadoPor: remetente
+    });
+
+    salvarBlacklist(lista);
+
+    await sock.sendMessage(remetente, {
+      text:
+`✅ ADICIONADO À BLACKLIST
+
+👤 ${nome}
+
+Novos Pix com esse nome receberão alerta automático.`
+    });
+
+    return true;
+  }
+
+  if (comando === '/listblacklist') {
+    const lista = carregarBlacklist();
+
+    if (!lista.length) {
+      await sock.sendMessage(remetente, {
+        text: '✅ A blacklist está vazia.'
+      });
+
+      return true;
+    }
+
+    const linhas = lista.map((item, index) => {
+      const data = item.data
+        ? new Date(item.data).toLocaleDateString('pt-BR', {
+            timeZone: 'America/Sao_Paulo'
+          })
+        : 'Sem data';
+
+      return `${index + 1}. ${item.nome}\n   Data: ${data}`;
+    });
+
+    await sock.sendMessage(remetente, {
+      text:
+`🚫 BLACKLIST PIX
+
+${linhas.join('\n\n')}
+
+Total: ${lista.length}`
+    });
+
+    return true;
+  }
+
+  if (comando.startsWith('/removeblacklist')) {
+    const quoted = getQuotedInfo(msg.message);
+    const textoRespondido = textoDaQuotedMessage(quoted.quotedMessage);
+    const nomeRespondido = extrairNomePix(textoRespondido);
+
+    const nomeDigitado = String(texto || '')
+      .trim()
+      .replace(/^\/removeblacklist\s*/i, '')
+      .trim();
+
+    const nome = nomeRespondido || nomeDigitado;
+
+    if (!nome) {
+      await sock.sendMessage(remetente, {
+        text:
+`⚠️ Use uma destas formas:
+
+1. Responda ao PIX com:
+/removeblacklist
+
+2. Digite:
+/removeblacklist Nome Completo`
+      });
+
+      return true;
+    }
+
+    const lista = carregarBlacklist();
+    const nomeNormalizado = normalizarNomeBlacklist(nome);
+
+    const novaLista = lista.filter(
+      item => normalizarNomeBlacklist(item.nome) !== nomeNormalizado
+    );
+
+    if (novaLista.length === lista.length) {
+      await sock.sendMessage(remetente, {
+        text: `⚠️ ${nome} não foi encontrado na blacklist.`
+      });
+
+      return true;
+    }
+
+    salvarBlacklist(novaLista);
+
+    await sock.sendMessage(remetente, {
+      text:
+`✅ REMOVIDO DA BLACKLIST
+
+👤 ${nome}`
+    });
+
+    return true;
+  }
+
+
   if (comando === '/fila') {
     const lista = operadoresOnline.length
       ? operadoresOnline.map((op, i) => `${i + 1}. Operador ${i + 1}`).join('\n')
@@ -1473,13 +1664,33 @@ app.post('/pix/:cliente', async (req, res) => {
       valorNumero: numeroPixBR(valor),
       texto: mensagem
     });
+    const registroFraude = buscarNaBlacklist(nome);
 
-    await sock.sendMessage(destino, {
-      text:
-`💰 PIX RECEBIDO
+    const mensagemPix = registroFraude
+      ? `━━━━━━━━━━━━━━━━━━━━━━
+
+💰 PIX RECEBIDO
 
 👤 ${nome}
-💵 R$ ${valor}`
+💵 R$ ${valor}
+
+🔴 STATUS: SUSPEITO
+
+Motivo:
+• Nome presente na lista de fraude.
+
+Ação recomendada:
+❌ Não liberar saldo
+👤 Encaminhar para análise
+
+━━━━━━━━━━━━━━━━━━━━━━`
+      : `💰 PIX RECEBIDO
+
+👤 ${nome}
+💵 R$ ${valor}`;
+
+    await sock.sendMessage(destino, {
+      text: mensagemPix
     });
 
     return res.status(200).json({
@@ -1542,6 +1753,7 @@ app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
   conectarWhatsApp();
 });
+
 
 
 

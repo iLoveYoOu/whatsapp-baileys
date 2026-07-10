@@ -132,22 +132,14 @@ function textoDaQuotedMessage(quotedMessage) {
 
 
 /* BLACKLIST PIX */
+const fsBlacklist = require('fs');
+const axiosBlacklist = require('axios');
+
 const BLACKLIST_PATH = `${__dirname}/blacklist.json`;
-
-const BLACKLIST_GITHUB_TOKEN =
-  process.env.BLACKLIST_GITHUB_TOKEN || '';
-
-const BLACKLIST_GITHUB_OWNER =
-  process.env.BLACKLIST_GITHUB_OWNER || 'iLoveYoOu';
-
-const BLACKLIST_GITHUB_REPO =
-  process.env.BLACKLIST_GITHUB_REPO || 'whatsapp-baileys';
-
-const BLACKLIST_GITHUB_BRANCH =
-  process.env.BLACKLIST_GITHUB_BRANCH || 'principal';
+const BLACKLIST_GIST_ID = process.env.BLACKLIST_GIST_ID || '';
+const BLACKLIST_GITHUB_TOKEN = process.env.BLACKLIST_GITHUB_TOKEN || '';
 
 let blacklistCache = [];
-let blacklistSha = '';
 
 function normalizarNomeBlacklist(nome) {
   return String(nome || '')
@@ -160,12 +152,12 @@ function normalizarNomeBlacklist(nome) {
 
 function carregarBlacklistLocal() {
   try {
-    if (!fs.existsSync(BLACKLIST_PATH)) {
-      fs.writeFileSync(BLACKLIST_PATH, '[]', 'utf8');
+    if (!fsBlacklist.existsSync(BLACKLIST_PATH)) {
+      fsBlacklist.writeFileSync(BLACKLIST_PATH, '[]', 'utf8');
       return [];
     }
 
-    const conteudo = fs.readFileSync(BLACKLIST_PATH, 'utf8');
+    const conteudo = fsBlacklist.readFileSync(BLACKLIST_PATH, 'utf8');
     const lista = JSON.parse(conteudo || '[]');
 
     return Array.isArray(lista) ? lista : [];
@@ -175,7 +167,7 @@ function carregarBlacklistLocal() {
   }
 }
 
-function githubHeaders() {
+function headersGist() {
   return {
     Authorization: `Bearer ${BLACKLIST_GITHUB_TOKEN}`,
     Accept: 'application/vnd.github+json',
@@ -187,53 +179,43 @@ function githubHeaders() {
 async function carregarBlacklistRemota() {
   blacklistCache = carregarBlacklistLocal();
 
-  if (!BLACKLIST_GITHUB_TOKEN) {
-    console.warn('Token GitHub ausente. Blacklist somente local.');
+  if (!BLACKLIST_GIST_ID || !BLACKLIST_GITHUB_TOKEN) {
+    console.warn('Gist não configurado. Blacklist usando apenas arquivo local.');
     return blacklistCache;
   }
 
-  const url =
-    `https://api.github.com/repos/` +
-    `${BLACKLIST_GITHUB_OWNER}/` +
-    `${BLACKLIST_GITHUB_REPO}/contents/blacklist.json`;
-
   try {
-    const resposta = await axios.get(url, {
-      headers: githubHeaders(),
-      params: {
-        ref: BLACKLIST_GITHUB_BRANCH
-      },
-      timeout: 30000
-    });
+    const resposta = await axiosBlacklist.get(
+      `https://api.github.com/gists/${BLACKLIST_GIST_ID}`,
+      {
+        headers: headersGist(),
+        timeout: 30000
+      }
+    );
 
-    blacklistSha = resposta.data.sha || '';
+    const arquivo = resposta.data?.files?.['blacklist.json'];
 
-    const conteudoBase64 = String(resposta.data.content || '')
-      .replace(/\s/g, '');
+    if (!arquivo) {
+      throw new Error('blacklist.json não encontrado no Gist.');
+    }
 
-    const conteudo = Buffer
-      .from(conteudoBase64, 'base64')
-      .toString('utf8');
-
-    const lista = JSON.parse(conteudo || '[]');
-
+    const lista = JSON.parse(arquivo.content || '[]');
     blacklistCache = Array.isArray(lista) ? lista : [];
 
-    fs.writeFileSync(
+    fsBlacklist.writeFileSync(
       BLACKLIST_PATH,
       JSON.stringify(blacklistCache, null, 2),
       'utf8'
     );
 
     console.log(
-      `Blacklist carregada do GitHub: ` +
-      `${blacklistCache.length} registro(s).`
+      `Blacklist carregada do Gist: ${blacklistCache.length} registro(s).`
     );
 
     return blacklistCache;
   } catch (err) {
     console.error(
-      'Erro ao carregar blacklist do GitHub:',
+      'Erro ao carregar blacklist do Gist:',
       err.response?.data || err.message
     );
 
@@ -250,63 +232,47 @@ async function salvarBlacklist(lista) {
 
   const json = JSON.stringify(blacklistCache, null, 2);
 
-  fs.writeFileSync(
+  fsBlacklist.writeFileSync(
     BLACKLIST_PATH,
     json,
     'utf8'
   );
 
-  if (!BLACKLIST_GITHUB_TOKEN) {
+  if (!BLACKLIST_GIST_ID || !BLACKLIST_GITHUB_TOKEN) {
     console.warn('Blacklist salva somente localmente.');
     return;
   }
 
-  const url =
-    `https://api.github.com/repos/` +
-    `${BLACKLIST_GITHUB_OWNER}/` +
-    `${BLACKLIST_GITHUB_REPO}/contents/blacklist.json`;
-
-  const body = {
-    message: `Atualiza blacklist (${blacklistCache.length} registros)`,
-    content: Buffer.from(json, 'utf8').toString('base64'),
-    branch: BLACKLIST_GITHUB_BRANCH
-  };
-
-  if (blacklistSha) {
-    body.sha = blacklistSha;
-  }
-
-  const resposta = await axios.put(url, body, {
-    headers: githubHeaders(),
-    timeout: 30000
-  });
-
-  blacklistSha =
-    resposta.data?.content?.sha ||
-    blacklistSha;
+  await axiosBlacklist.patch(
+    `https://api.github.com/gists/${BLACKLIST_GIST_ID}`,
+    {
+      files: {
+        'blacklist.json': {
+          content: json
+        }
+      }
+    },
+    {
+      headers: headersGist(),
+      timeout: 30000
+    }
+  );
 
   console.log(
-    `Blacklist salva no GitHub: ` +
-    `${blacklistCache.length} registro(s).`
+    `Blacklist salva no Gist: ${blacklistCache.length} registro(s).`
   );
 }
 
 function extrairNomePix(texto) {
   const match = String(texto || '').match(/👤\s*(.+)/i);
-
-  return match
-    ? String(match[1]).trim()
-    : '';
+  return match ? String(match[1]).trim() : '';
 }
 
 function buscarNaBlacklist(nome) {
-  const nomeNormalizado =
-    normalizarNomeBlacklist(nome);
+  const nomeNormalizado = normalizarNomeBlacklist(nome);
 
   return blacklistCache.find(
-    item =>
-      normalizarNomeBlacklist(item.nome) ===
-      nomeNormalizado
+    item => normalizarNomeBlacklist(item.nome) === nomeNormalizado
   );
 }
 async function baixarImagem(message) {
@@ -1914,6 +1880,7 @@ app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
   conectarWhatsApp();
 });
+
 
 
 

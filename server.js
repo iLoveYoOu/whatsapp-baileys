@@ -26,9 +26,6 @@ const PORT = process.env.PORT || 3000;
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const MP_TOKEN = process.env.MERCADO_PAGO_ACCESS_TOKEN;
 
-const CORA_CLIENT_ID = String(process.env.CORA_CLIENT_ID || '').trim();
-const CORA_CERT_PATH = process.env.CORA_CERT_PATH || './certs/certificate.pem';
-const CORA_KEY_PATH = process.env.CORA_KEY_PATH || './certs/private-key.key';
 
 let sock = null;
 let qrAtual = '';
@@ -294,144 +291,7 @@ async function baixarImagem(message) {
 
   return buffer;
 }
-/* CORA API - LEGADO NÃO UTILIZADO */
-function lerPem(valorEnv, caminhoArquivo) {
-  if (valorEnv) return String(valorEnv).replace(/\\n/g, '\n');
-  return fs.readFileSync(caminhoArquivo);
-}
-
-function criarCoraAgent() {
-  return new https.Agent({
-    cert: lerPem(process.env.CORA_CERT_PEM, CORA_CERT_PATH),
-    key: lerPem(process.env.CORA_KEY_PEM, CORA_KEY_PATH),
-    rejectUnauthorized: true
-  });
-}
-async function obterTokenCora() {
-  if (!CORA_CLIENT_ID) {
-    throw new Error('CORA_CLIENT_ID não configurado.');
-  }
-
-  const body = new URLSearchParams({
-    grant_type: 'client_credentials',
-    client_id: CORA_CLIENT_ID
-  });
-
-  const resp = await axios.post(
-    'https://matls-clients.api.cora.com.br/token',
-    body.toString(),
-    {
-      httpsAgent: criarCoraAgent(),
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Accept: 'application/json'
-      },
-      timeout: 30000
-    }
-  );
-
-  return resp.data.access_token;
-}
-
-async function consultarFaturaCora(invoiceId) {
-  const token = await obterTokenCora();
-
-  const resp = await axios.get(
-    `https://matls-clients.api.cora.com.br/v2/invoices/${invoiceId}`,
-    {
-      httpsAgent: criarCoraAgent(),
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/json'
-      },
-      timeout: 30000
-    }
-  );
-
-  return resp.data;
-}
-
-async function gerarPixCora(valor) {
-  const token = await obterTokenCora();
-
-  const valorCentavos = Math.round(Number(valor) * 100);
-
-  if (!valorCentavos || valorCentavos < 500) {
-    throw new Error('Valor mínimo da Cora é R$ 5,00.');
-  }
-
-  const vencimento = new Date();
-  vencimento.setDate(vencimento.getDate() + 1);
-
-  const payload = {
-    code: `pixcora-${Date.now()}`,
-    customer: {
-      name: 'Cliente Pix Cora',
-      email: 'cliente@teste.com',
-      document: {
-        identity: '12345678909',
-        type: 'CPF'
-      },
-      address: {
-        street: 'Rua Teste',
-        number: '123',
-        district: 'Centro',
-        city: 'Praia Grande',
-        state: 'SP',
-        complement: '',
-        zip_code: '11700000'
-      }
-    },
-    services: [
-      {
-        name: `Banca Meia do Lucão - R$ ${Number(valor).toFixed(2)}`,
-        amount: valorCentavos
-      }
-    ],
-    payment_terms: {
-      due_date: vencimento.toISOString().split('T')[0]
-    },
-    payment_forms: ['PIX']
-  };
-
-  const resp = await axios.post(
-    'https://matls-clients.api.cora.com.br/v2/invoices',
-    payload,
-    {
-      httpsAgent: criarCoraAgent(),
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        'Idempotency-Key': crypto.randomUUID()
-      },
-      timeout: 30000
-    }
-  );
-
-  const emv =
-    resp.data?.payment_options?.pix?.emv ||
-    resp.data?.pix?.emv;
-
-  const qrUrl =
-    resp.data?.payment_options?.bank_slip?.url ||
-    resp.data?.payment_options?.pix?.url ||
-    '';
-
-  const invoiceId = resp.data?.id || resp.data?.code || '';
-
-  if (!emv) {
-    throw new Error('Cora não retornou EMV Pix.');
-  }
-
-  return {
-    id: invoiceId,
-    emv,
-    qrUrl,
-    raw: resp.data
-  };
-}
-/* MERCADO PAGO ORDERS API */
+/* MERCADO PAGO PAYMENTS API */
 async function gerarPixMercadoPago(valor, descricao) {
   if (!MP_TOKEN) {
     throw new Error(
@@ -897,10 +757,7 @@ async function mensagemDeAdmin(msg) {
 
 async function processarComandos(msg, texto, remetente, isAdmin) {
   let comando = String(texto || '').trim().toLowerCase();
-  // /pix usa Mercado Pago como provedor principal
-  if (/^\/pix\s+/i.test(comando)) {
-    comando = comando.replace(/^\/pix\b/i, '/pixmp');
-  }
+
 
 
   if (comando === '/menu' || comando === '/ajuda') {
@@ -954,7 +811,7 @@ Limite: 2 fotos por banca`
     }
 
     await sock.sendMessage(remetente, {
-      text: 'Ã¢â€ºâ€ Status atualizado: offline'
+      text: '⛔ Status atualizado: offline'
     });
 
     return true;
@@ -1921,6 +1778,8 @@ app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
   conectarWhatsApp();
 });
+
+
 
 
 

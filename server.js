@@ -1,4 +1,4 @@
-﻿
+
 require('dotenv').config();
 const fs = require('fs');
 const https = require('https');
@@ -765,11 +765,11 @@ async function processarComandos(msg, texto, remetente, isAdmin) {
       text:
 `📋 MENU DE COMANDOS
 
-Ã°Å¸â€˜Â¨Ã¢â‚¬ÂÃ°Å¸â€™Â» OPERADORES
+👨‍💻 OPERADORES
 /opon - entrar na fila
 /opoff - sair da fila
 
-Ã°Å¸â€˜â€˜ ADMIN
+👑 ADMIN
 /fila - ver operadores online
 /stats - estatísticas
 /reset - resetar sistema
@@ -781,7 +781,7 @@ async function processarComandos(msg, texto, remetente, isAdmin) {
 /pix 500 - gerar Pix
 /500 - enviar valor para operador
 
-Ã°Å¸â€œÂ¸ OPERADOR
+📸 OPERADOR
 Responder banca com FOTO
 Limite: 2 fotos por banca`
     });
@@ -1016,7 +1016,7 @@ Total: ${lista.length}`
     indiceOperador = 0;
 
     await sock.sendMessage(remetente, {
-      text: 'Ã°Å¸Â§Â¹ Fila limpa com sucesso.'
+      text: '🧹 Fila limpa com sucesso.'
     });
 
     return true;
@@ -1048,7 +1048,7 @@ Total: ${lista.length}`
     }
 
     await sock.sendMessage(remetente, {
-      text: `Ã¢â€ºâ€ Operador ${numero} removido da fila.`
+      text: `⛔ Operador ${numero} removido da fila.`
     });
 
     return true;
@@ -1089,10 +1089,10 @@ Próximo da fila: ${proximo}`
 
     await sock.sendMessage(remetente, {
       text:
-`Ã¢â„¢Â»Ã¯Â¸Â Sistema resetado
+`♻️ Sistema resetado
 
 Fila zerada
-Ã€Ândice reiniciado
+Àndice reiniciado
 Bancas temporárias limpas
 Pagamentos pendentes limpos`
     });
@@ -1103,7 +1103,7 @@ Pagamentos pendentes limpos`
   if (comando === '/next') {
     if (!operadoresOnline.length) {
       await sock.sendMessage(remetente, {
-        text: 'Ã¢Å¡Â Ã¯Â¸Â Nenhum operador online.'
+        text: '⚠️ Nenhum operador online.'
       });
       return true;
     }
@@ -1112,7 +1112,7 @@ Pagamentos pendentes limpos`
 
     if (!quoted.stanzaId) {
       await sock.sendMessage(remetente, {
-        text: 'Ã¢Å¡Â Ã¯Â¸Â Responda a mensagem do cliente com /next.'
+        text: '⚠️ Responda a mensagem do cliente com /next.'
       });
       return true;
     }
@@ -1428,7 +1428,7 @@ async function processarFotoOperador(msg, remetente) {
     await sock.sendMessage(remetente, {
       text: banca.pagamentoConfirmado
         ? 'â›” FOTO 2/2 já enviada. Limite final atingido.'
-        : 'â›” Aguarde o pagamento do cliente para enviar a FOTO 2/2.'
+        : '⛔ Aguarde o pagamento do cliente para enviar a FOTO 2/2.'
     });
     return true;
   }

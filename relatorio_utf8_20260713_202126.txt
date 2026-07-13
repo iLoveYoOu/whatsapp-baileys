@@ -1,0 +1,824 @@
+﻿corrigir-emojis.js linha 10
+ANTES:   'ðŸ’°': '💰',
+DEPOIS:   '💰': '??',
+
+corrigir-emojis.js linha 11
+ANTES:   'ðŸ“‹': '📋',
+DEPOIS:   '📋': '??',
+
+corrigir-emojis.js linha 12
+ANTES:   'ðŸ“·': '📷',
+DEPOIS:   '📷': '??',
+
+corrigir-emojis.js linha 13
+ANTES:   'ðŸŽ‰': '🎉',
+DEPOIS:   '🎉': '??',
+
+corrigir-emojis.js linha 14
+ANTES:   'ðŸ‘¤': '👤',
+DEPOIS:   '👤': '??',
+
+corrigir-emojis.js linha 15
+ANTES:   'ðŸ’µ': '💵',
+DEPOIS:   '💵': '??',
+
+corrigir-emojis.js linha 16
+ANTES:   'ðŸ“²': '📲',
+DEPOIS:   '📲': '??',
+
+corrigir-emojis.js linha 17
+ANTES:   'ðŸ”—': '🔗'
+DEPOIS:   '🔗': '??'
+
+fix-final.js linha 39
+ANTES:   'ðŸ’°': '💰',
+DEPOIS:   '💰': '??',
+
+fix-final.js linha 40
+ANTES:   'ðŸ“‹': '📋',
+DEPOIS:   '📋': '??',
+
+fix-final.js linha 41
+ANTES:   'ðŸ“¥': '📥',
+DEPOIS:   '📥': '??',
+
+fix-final.js linha 42
+ANTES:   'ðŸ“¸': '📸',
+DEPOIS:   '📸': '??',
+
+fix-final.js linha 43
+ANTES:   'ðŸ“²': '📲',
+DEPOIS:   '📲': '??',
+
+fix-final.js linha 44
+ANTES:   'ðŸ•˜': '🕐',
+DEPOIS:   '🕘': '??',
+
+fix-final.js linha 45
+ANTES:   'ðŸ™': '🙏',
+DEPOIS:   '🙏': '??',
+
+server.js linha 768
+ANTES: Ã°Å¸â€˜Â¨Ã¢â‚¬ÂÃ°Å¸â€™Â» OPERADORES
+DEPOIS: 👨‍💻 OPERADORES
+
+server.js linha 772
+ANTES: Ã°Å¸â€˜â€˜ ADMIN
+DEPOIS: 👑 ADMIN
+
+server.js linha 784
+ANTES: Ã°Å¸â€œÂ¸ OPERADOR
+DEPOIS: 📸 OPERADOR
+
+server.js linha 1019
+ANTES:       text: 'Ã°Å¸Â§Â¹ Fila limpa com sucesso.'
+DEPOIS:       text: '🧹 Fila limpa com sucesso.'
+
+server.js linha 1051
+ANTES:       text: `Ã¢â€ºâ€ Operador ${numero} removido da fila.`
+DEPOIS:       text: `⛔ Operador ${numero} removido da fila.`
+
+server.js linha 1092
+ANTES: `Ã¢â„¢Â»Ã¯Â¸Â Sistema resetado
+DEPOIS: `♻️ Sistema resetado
+
+server.js linha 1095
+ANTES: Ã€Ândice reiniciado
+DEPOIS: Àndice reiniciado
+
+server.js linha 1106
+ANTES:         text: 'Ã¢Å¡Â Ã¯Â¸Â Nenhum operador online.'
+DEPOIS:         text: '⚠️ Nenhum operador online.'
+
+server.js linha 1115
+ANTES:         text: 'Ã¢Å¡Â Ã¯Â¸Â Responda a mensagem do cliente com /next.'
+DEPOIS:         text: '⚠️ Responda a mensagem do cliente com /next.'
+
+server.js linha 1431
+ANTES:         : 'â›” Aguarde o pagamento do cliente para enviar a FOTO 2/2.'
+DEPOIS:         : '⛔ Aguarde o pagamento do cliente para enviar a FOTO 2/2.'
+
+server_antes_pixcora.js linha 51
+ANTES: âš ï¸ ATENÃ‡ÃƒO - MUITO IMPORTANTE!
+DEPOIS: ⚠️ ATENÇÃO - MUITO IMPORTANTE!
+
+server_antes_pixcora.js linha 53
+ANTES: Meu nÃºmero de atendimento pode cair a qualquer momento!
+DEPOIS: Meu número de atendimento pode cair a qualquer momento!
+
+server_antes_pixcora.js linha 55
+ANTES: Se a mensagem NÃƒO CHEGAR, nÃ£o fique sem resposta!
+DEPOIS: Se a mensagem NÃO CHEGAR, não fique sem resposta!
+
+server_antes_pixcora.js linha 57
+ANTES: ðŸ“ž CHAMA DIRETO NO NÃšMERO RESERVA:
+DEPOIS: 📞 CHAMA DIRETO NO NÚMERO RESERVA:
+
+server_antes_pixcora.js linha 60
+ANTES: ðŸ•˜ HorÃ¡rio de atendimento:
+DEPOIS: 🕘 Horário de atendimento:
+
+server_antes_pixcora.js linha 63
+ANTES: ðŸ™ Obrigado pela confianÃ§a!
+DEPOIS: 🙏 Obrigado pela confiança!
+
+server_antes_pixcora.js linha 65
+ANTES: Att: Equipe Meia do LucÃ£o`;
+DEPOIS: Att: Equipe Meia do Lucão`;
+
+server_antes_pixcora.js linha 131
+ANTES:     throw new Error('MERCADO_PAGO_ACCESS_TOKEN nÃ£o configurado no Render.');
+DEPOIS:     throw new Error('MERCADO_PAGO_ACCESS_TOKEN não configurado no Render.');
+
+server_antes_pixcora.js linha 190
+ANTES:     throw new Error('MERCADO_PAGO_ACCESS_TOKEN nÃ£o configurado no Render.');
+DEPOIS:     throw new Error('MERCADO_PAGO_ACCESS_TOKEN não configurado no Render.');
+
+server_antes_pixcora.js linha 216
+ANTES:       text: 'âœ… Pagamento aprovado.\nâš ï¸ Nenhum operador online no momento. Sua banca ficarÃ¡ aguardando atendimento.'
+DEPOIS:       text: '✅ Pagamento aprovado.\n⚠️ Nenhum operador online no momento. Sua banca ficará aguardando atendimento.'
+
+server_antes_pixcora.js linha 230
+ANTES: `ðŸ“¥ Nova banca liberada
+DEPOIS: `📥 Nova banca liberada
+
+server_antes_pixcora.js linha 313
+ANTES:           text: `âš ï¸ Pagamento nÃ£o aprovado. Status: ${data.status}`
+DEPOIS:           text: `⚠️ Pagamento não aprovado. Status: ${data.status}`
+
+server_antes_pixcora.js linha 406
+ANTES:     throw new Error(`Aba nÃ£o encontrada: ${aba}`);
+DEPOIS:     throw new Error(`Aba não encontrada: ${aba}`);
+
+server_antes_pixcora.js linha 460
+ANTES:   throw new Error('NÃ£o encontrei linha vazia antes do TOTAL.');
+DEPOIS:   throw new Error('Não encontrei linha vazia antes do TOTAL.');
+
+server_antes_pixcora.js linha 582
+ANTES: `ðŸ“‹ MENU DE COMANDOS
+DEPOIS: `📋 MENU DE COMANDOS
+
+server_antes_pixcora.js linha 584
+ANTES: ðŸ‘¨â€ðŸ’» OPERADORES
+DEPOIS: 👨‍💻 OPERADORES
+
+server_antes_pixcora.js linha 588
+ANTES: ðŸ‘‘ ADMIN
+DEPOIS: 👑 ADMIN
+
+server_antes_pixcora.js linha 595
+ANTES: ðŸ’° BANCAS
+DEPOIS: 💰 BANCAS
+
+server_antes_pixcora.js linha 600
+ANTES: ðŸ“¸ OPERADOR
+DEPOIS: 📸 OPERADOR
+
+server_antes_pixcora.js linha 630
+ANTES:       text: 'â›” Status atualizado: offline'
+DEPOIS:       text: '⛔ Status atualizado: offline'
+
+server_antes_pixcora.js linha 644
+ANTES:       text: `ðŸ“‹ Operadores online:\n\n${lista}`
+DEPOIS:       text: `📋 Operadores online:\n\n${lista}`
+
+server_antes_pixcora.js linha 655
+ANTES:       text: 'ðŸ§¹ Fila limpa com sucesso.'
+DEPOIS:       text: '🧹 Fila limpa com sucesso.'
+
+server_antes_pixcora.js linha 675
+ANTES:         text: 'Operador nÃ£o encontrado.'
+DEPOIS:         text: 'Operador não encontrado.'
+
+server_antes_pixcora.js linha 687
+ANTES:       text: `â›” Operador ${numero} removido da fila.`
+DEPOIS:       text: `⛔ Operador ${numero} removido da fila.`
+
+server_antes_pixcora.js linha 700
+ANTES: `ðŸ“Š EstatÃ­sticas
+DEPOIS: `📊 Estatísticas
+
+server_antes_pixcora.js linha 707
+ANTES: PrÃ³ximo da fila: ${proximo}`
+DEPOIS: Próximo da fila: ${proximo}`
+
+server_antes_pixcora.js linha 726
+ANTES: `â™»ï¸ Sistema resetado
+DEPOIS: `♻️ Sistema resetado
+
+server_antes_pixcora.js linha 730
+ANTES: Bancas temporÃ¡rias limpas
+DEPOIS: Bancas temporárias limpas
+
+server_antes_pixcora.js linha 740
+ANTES:         text: 'âš ï¸ Nenhum operador online.'
+DEPOIS:         text: '⚠️ Nenhum operador online.'
+
+server_antes_pixcora.js linha 749
+ANTES:         text: 'âš ï¸ Responda a mensagem do cliente com /next.'
+DEPOIS:         text: '⚠️ Responda a mensagem do cliente com /next.'
+
+server_antes_pixcora.js linha 758
+ANTES:         text: 'âš ï¸ NÃ£o consegui ler a banca respondida.'
+DEPOIS:         text: '⚠️ Não consegui ler a banca respondida.'
+
+server_antes_pixcora.js linha 797
+ANTES:         text: 'âš ï¸ Responda a mensagem/link do cliente com /pix 500.'
+DEPOIS:         text: '⚠️ Responda a mensagem/link do cliente com /pix 500.'
+
+server_antes_pixcora.js linha 806
+ANTES:         text: 'âš ï¸ NÃ£o consegui ler a banca respondida.'
+DEPOIS:         text: '⚠️ Não consegui ler a banca respondida.'
+
+server_antes_pixcora.js linha 813
+ANTES:       `Banca Meia do LucÃ£o - R$ ${valor}`
+DEPOIS:       `Banca Meia do Lucão - R$ ${valor}`
+
+server_antes_pixcora.js linha 836
+ANTES: `ðŸ’° PIX GERADO
+DEPOIS: `💰 PIX GERADO
+
+server_antes_pixcora.js linha 846
+ANTES:         text: 'ðŸ“‹ PIX COPIA E COLA:'
+DEPOIS:         text: '📋 PIX COPIA E COLA:'
+
+server_antes_pixcora.js linha 855
+ANTES:       text: `âœ… Pix criado. ID: ${pix.id}\nAssim que aprovar, a banca serÃ¡ liberada automaticamente.`
+DEPOIS:       text: `✅ Pix criado. ID: ${pix.id}\nAssim que aprovar, a banca será liberada automaticamente.`
+
+server_antes_pixcora.js linha 866
+ANTES:         text: 'âš ï¸ Responda a banca original com o valor. Ex: /500'
+DEPOIS:         text: '⚠️ Responda a banca original com o valor. Ex: /500'
+
+server_antes_pixcora.js linha 875
+ANTES:         text: 'âš ï¸ Esta banca ainda nÃ£o foi liberada para operador.'
+DEPOIS:         text: '⚠️ Esta banca ainda não foi liberada para operador.'
+
+server_antes_pixcora.js linha 883
+ANTES:       text: `ðŸ’° Valor fechado: R$ ${valor}`
+DEPOIS:       text: `💰 Valor fechado: R$ ${valor}`
+
+server_antes_pixcora.js linha 887
+ANTES:       text: `ðŸ’° Valor enviado para ${banca.operadorNome}`
+DEPOIS:       text: `💰 Valor enviado para ${banca.operadorNome}`
+
+server_antes_pixcora.js linha 985
+ANTES:       console.log('ConexÃ£o fechada. Reconectar:', shouldReconnect);
+DEPOIS:       console.log('Conexão fechada. Reconectar:', shouldReconnect);
+
+server_antes_retorno_cora.js linha 58
+ANTES: âš ï¸ ATENÃ‡ÃƒO - MUITO IMPORTANTE!
+DEPOIS: ⚠️ ATENÇÃO - MUITO IMPORTANTE!
+
+server_antes_retorno_cora.js linha 60
+ANTES: Meu nÃºmero de atendimento pode cair a qualquer momento!
+DEPOIS: Meu número de atendimento pode cair a qualquer momento!
+
+server_antes_retorno_cora.js linha 62
+ANTES: Se a mensagem NÃƒO CHEGAR, nÃ£o fique sem resposta!
+DEPOIS: Se a mensagem NÃO CHEGAR, não fique sem resposta!
+
+server_antes_retorno_cora.js linha 64
+ANTES: ðŸ“ž CHAMA DIRETO NO NÃšMERO RESERVA:
+DEPOIS: 📞 CHAMA DIRETO NO NÚMERO RESERVA:
+
+server_antes_retorno_cora.js linha 67
+ANTES: ðŸ•˜ HorÃ¡rio de atendimento:
+DEPOIS: 🕘 Horário de atendimento:
+
+server_antes_retorno_cora.js linha 70
+ANTES: ðŸ™ Obrigado pela confianÃ§a!
+DEPOIS: 🙏 Obrigado pela confiança!
+
+server_antes_retorno_cora.js linha 72
+ANTES: Att: Equipe Meia do LucÃ£o`;
+DEPOIS: Att: Equipe Meia do Lucão`;
+
+server_antes_retorno_cora.js linha 251
+ANTES:     throw new Error('MERCADO_PAGO_ACCESS_TOKEN nÃ£o configurado no Render.');
+DEPOIS:     throw new Error('MERCADO_PAGO_ACCESS_TOKEN não configurado no Render.');
+
+server_antes_retorno_cora.js linha 310
+ANTES:     throw new Error('MERCADO_PAGO_ACCESS_TOKEN nÃ£o configurado no Render.');
+DEPOIS:     throw new Error('MERCADO_PAGO_ACCESS_TOKEN não configurado no Render.');
+
+server_antes_retorno_cora.js linha 336
+ANTES:       text: 'âœ… Pagamento aprovado.\nâš ï¸ Nenhum operador online no momento. Sua banca ficarÃ¡ aguardando atendimento.'
+DEPOIS:       text: '✅ Pagamento aprovado.\n⚠️ Nenhum operador online no momento. Sua banca ficará aguardando atendimento.'
+
+server_antes_retorno_cora.js linha 350
+ANTES: `ðŸ“¥ Nova banca liberada
+DEPOIS: `📥 Nova banca liberada
+
+server_antes_retorno_cora.js linha 433
+ANTES:           text: `âš ï¸ Pagamento nÃ£o aprovado. Status: ${data.status}`
+DEPOIS:           text: `⚠️ Pagamento não aprovado. Status: ${data.status}`
+
+server_antes_retorno_cora.js linha 526
+ANTES:     throw new Error(`Aba nÃ£o encontrada: ${aba}`);
+DEPOIS:     throw new Error(`Aba não encontrada: ${aba}`);
+
+server_antes_retorno_cora.js linha 580
+ANTES:   throw new Error('NÃ£o encontrei linha vazia antes do TOTAL.');
+DEPOIS:   throw new Error('Não encontrei linha vazia antes do TOTAL.');
+
+server_antes_retorno_cora.js linha 702
+ANTES: `ðŸ“‹ MENU DE COMANDOS
+DEPOIS: `📋 MENU DE COMANDOS
+
+server_antes_retorno_cora.js linha 704
+ANTES: ðŸ‘¨â€ðŸ’» OPERADORES
+DEPOIS: 👨‍💻 OPERADORES
+
+server_antes_retorno_cora.js linha 708
+ANTES: ðŸ‘‘ ADMIN
+DEPOIS: 👑 ADMIN
+
+server_antes_retorno_cora.js linha 715
+ANTES: ðŸ’° BANCAS
+DEPOIS: 💰 BANCAS
+
+server_antes_retorno_cora.js linha 720
+ANTES: ðŸ“¸ OPERADOR
+DEPOIS: 📸 OPERADOR
+
+server_antes_retorno_cora.js linha 750
+ANTES:       text: 'â›” Status atualizado: offline'
+DEPOIS:       text: '⛔ Status atualizado: offline'
+
+server_antes_retorno_cora.js linha 764
+ANTES:       text: `ðŸ“‹ Operadores online:\n\n${lista}`
+DEPOIS:       text: `📋 Operadores online:\n\n${lista}`
+
+server_antes_retorno_cora.js linha 775
+ANTES:       text: 'ðŸ§¹ Fila limpa com sucesso.'
+DEPOIS:       text: '🧹 Fila limpa com sucesso.'
+
+server_antes_retorno_cora.js linha 795
+ANTES:         text: 'Operador nÃ£o encontrado.'
+DEPOIS:         text: 'Operador não encontrado.'
+
+server_antes_retorno_cora.js linha 807
+ANTES:       text: `â›” Operador ${numero} removido da fila.`
+DEPOIS:       text: `⛔ Operador ${numero} removido da fila.`
+
+server_antes_retorno_cora.js linha 820
+ANTES: `ðŸ“Š EstatÃ­sticas
+DEPOIS: `📊 Estatísticas
+
+server_antes_retorno_cora.js linha 827
+ANTES: PrÃ³ximo da fila: ${proximo}`
+DEPOIS: Próximo da fila: ${proximo}`
+
+server_antes_retorno_cora.js linha 846
+ANTES: `â™»ï¸ Sistema resetado
+DEPOIS: `♻️ Sistema resetado
+
+server_antes_retorno_cora.js linha 850
+ANTES: Bancas temporÃ¡rias limpas
+DEPOIS: Bancas temporárias limpas
+
+server_antes_retorno_cora.js linha 860
+ANTES:         text: 'âš ï¸ Nenhum operador online.'
+DEPOIS:         text: '⚠️ Nenhum operador online.'
+
+server_antes_retorno_cora.js linha 869
+ANTES:         text: 'âš ï¸ Responda a mensagem do cliente com /next.'
+DEPOIS:         text: '⚠️ Responda a mensagem do cliente com /next.'
+
+server_antes_retorno_cora.js linha 878
+ANTES:         text: 'âš ï¸ NÃ£o consegui ler a banca respondida.'
+DEPOIS:         text: '⚠️ Não consegui ler a banca respondida.'
+
+server_antes_retorno_cora.js linha 971
+ANTES:         text: 'âš ï¸ Responda a mensagem/link do cliente com /pix 500.'
+DEPOIS:         text: '⚠️ Responda a mensagem/link do cliente com /pix 500.'
+
+server_antes_retorno_cora.js linha 980
+ANTES:         text: 'âš ï¸ NÃ£o consegui ler a banca respondida.'
+DEPOIS:         text: '⚠️ Não consegui ler a banca respondida.'
+
+server_antes_retorno_cora.js linha 987
+ANTES:       `Banca Meia do LucÃ£o - R$ ${valor}`
+DEPOIS:       `Banca Meia do Lucão - R$ ${valor}`
+
+server_antes_retorno_cora.js linha 1010
+ANTES: `ðŸ’° PIX GERADO
+DEPOIS: `💰 PIX GERADO
+
+server_antes_retorno_cora.js linha 1020
+ANTES:         text: 'ðŸ“‹ PIX COPIA E COLA:'
+DEPOIS:         text: '📋 PIX COPIA E COLA:'
+
+server_antes_retorno_cora.js linha 1029
+ANTES:       text: `âœ… Pix criado. ID: ${pix.id}\nAssim que aprovar, a banca serÃ¡ liberada automaticamente.`
+DEPOIS:       text: `✅ Pix criado. ID: ${pix.id}\nAssim que aprovar, a banca será liberada automaticamente.`
+
+server_antes_retorno_cora.js linha 1040
+ANTES:         text: 'âš ï¸ Responda a banca original com o valor. Ex: /500'
+DEPOIS:         text: '⚠️ Responda a banca original com o valor. Ex: /500'
+
+server_antes_retorno_cora.js linha 1049
+ANTES:         text: 'âš ï¸ Esta banca ainda nÃ£o foi liberada para operador.'
+DEPOIS:         text: '⚠️ Esta banca ainda não foi liberada para operador.'
+
+server_antes_retorno_cora.js linha 1057
+ANTES:       text: `ðŸ’° Valor fechado: R$ ${valor}`
+DEPOIS:       text: `💰 Valor fechado: R$ ${valor}`
+
+server_antes_retorno_cora.js linha 1061
+ANTES:       text: `ðŸ’° Valor enviado para ${banca.operadorNome}`
+DEPOIS:       text: `💰 Valor enviado para ${banca.operadorNome}`
+
+server_antes_retorno_cora.js linha 1159
+ANTES:       console.log('ConexÃ£o fechada. Reconectar:', shouldReconnect);
+DEPOIS:       console.log('Conexão fechada. Reconectar:', shouldReconnect);
+
+server_antes_troca_pix_cora.js linha 373
+ANTES: `ðŸ“¥ Nova banca liberada
+DEPOIS: `📥 Nova banca liberada
+
+server_antes_troca_pix_cora.js linha 761
+ANTES: ðŸ‘¨â€ðŸ’» OPERADORES
+DEPOIS: 👨‍💻 OPERADORES
+
+server_antes_troca_pix_cora.js linha 765
+ANTES: ðŸ‘‘ ADMIN
+DEPOIS: 👑 ADMIN
+
+server_antes_troca_pix_cora.js linha 777
+ANTES: ðŸ“¸ OPERADOR
+DEPOIS: 📸 OPERADOR
+
+server_antes_troca_pix_cora.js linha 807
+ANTES:       text: 'â›” Status atualizado: offline'
+DEPOIS:       text: '⛔ Status atualizado: offline'
+
+server_antes_troca_pix_cora.js linha 832
+ANTES:       text: 'ðŸ§¹ Fila limpa com sucesso.'
+DEPOIS:       text: '🧹 Fila limpa com sucesso.'
+
+server_antes_troca_pix_cora.js linha 864
+ANTES:       text: `â›” Operador ${numero} removido da fila.`
+DEPOIS:       text: `⛔ Operador ${numero} removido da fila.`
+
+server_antes_troca_pix_cora.js linha 903
+ANTES: `â™»ï¸ Sistema resetado
+DEPOIS: `♻️ Sistema resetado
+
+server_antes_troca_pix_cora.js linha 917
+ANTES:         text: 'âš ï¸ Nenhum operador online.'
+DEPOIS:         text: '⚠️ Nenhum operador online.'
+
+server_antes_troca_pix_cora.js linha 926
+ANTES:         text: 'âš ï¸ Responda a mensagem do cliente com /next.'
+DEPOIS:         text: '⚠️ Responda a mensagem do cliente com /next.'
+
+server_antes_troca_pix_cora.js linha 1041
+ANTES:         text: 'âš ï¸ Responda a mensagem/link do cliente com /pix 500.'
+DEPOIS:         text: '⚠️ Responda a mensagem/link do cliente com /pix 500.'
+
+server_antes_troca_pix_cora.js linha 1110
+ANTES:         text: 'âš ï¸ Responda a banca original com o valor. Ex: /500'
+DEPOIS:         text: '⚠️ Responda a banca original com o valor. Ex: /500'
+
+server_cora_backup.js linha 51
+ANTES: âš ï¸ ATENÃ‡ÃƒO - MUITO IMPORTANTE!
+DEPOIS: ⚠️ ATENÇÃO - MUITO IMPORTANTE!
+
+server_cora_backup.js linha 53
+ANTES: Meu nÃºmero de atendimento pode cair a qualquer momento!
+DEPOIS: Meu número de atendimento pode cair a qualquer momento!
+
+server_cora_backup.js linha 55
+ANTES: Se a mensagem NÃƒO CHEGAR, nÃ£o fique sem resposta!
+DEPOIS: Se a mensagem NÃO CHEGAR, não fique sem resposta!
+
+server_cora_backup.js linha 57
+ANTES: ðŸ“ž CHAMA DIRETO NO NÃšMERO RESERVA:
+DEPOIS: 📞 CHAMA DIRETO NO NÚMERO RESERVA:
+
+server_cora_backup.js linha 60
+ANTES: ðŸ•˜ HorÃ¡rio de atendimento:
+DEPOIS: 🕘 Horário de atendimento:
+
+server_cora_backup.js linha 63
+ANTES: ðŸ™ Obrigado pela confianÃ§a!
+DEPOIS: 🙏 Obrigado pela confiança!
+
+server_cora_backup.js linha 65
+ANTES: Att: Equipe Meia do LucÃ£o`;
+DEPOIS: Att: Equipe Meia do Lucão`;
+
+server_cora_backup.js linha 131
+ANTES:     throw new Error('MERCADO_PAGO_ACCESS_TOKEN nÃ£o configurado no Render.');
+DEPOIS:     throw new Error('MERCADO_PAGO_ACCESS_TOKEN não configurado no Render.');
+
+server_cora_backup.js linha 190
+ANTES:     throw new Error('MERCADO_PAGO_ACCESS_TOKEN nÃ£o configurado no Render.');
+DEPOIS:     throw new Error('MERCADO_PAGO_ACCESS_TOKEN não configurado no Render.');
+
+server_cora_backup.js linha 216
+ANTES:       text: 'âœ… Pagamento aprovado.\nâš ï¸ Nenhum operador online no momento. Sua banca ficarÃ¡ aguardando atendimento.'
+DEPOIS:       text: '✅ Pagamento aprovado.\n⚠️ Nenhum operador online no momento. Sua banca ficará aguardando atendimento.'
+
+server_cora_backup.js linha 230
+ANTES: `ðŸ“¥ Nova banca liberada
+DEPOIS: `📥 Nova banca liberada
+
+server_cora_backup.js linha 313
+ANTES:           text: `âš ï¸ Pagamento nÃ£o aprovado. Status: ${data.status}`
+DEPOIS:           text: `⚠️ Pagamento não aprovado. Status: ${data.status}`
+
+server_cora_backup.js linha 406
+ANTES:     throw new Error(`Aba nÃ£o encontrada: ${aba}`);
+DEPOIS:     throw new Error(`Aba não encontrada: ${aba}`);
+
+server_cora_backup.js linha 460
+ANTES:   throw new Error('NÃ£o encontrei linha vazia antes do TOTAL.');
+DEPOIS:   throw new Error('Não encontrei linha vazia antes do TOTAL.');
+
+server_cora_backup.js linha 582
+ANTES: `ðŸ“‹ MENU DE COMANDOS
+DEPOIS: `📋 MENU DE COMANDOS
+
+server_cora_backup.js linha 584
+ANTES: ðŸ‘¨â€ðŸ’» OPERADORES
+DEPOIS: 👨‍💻 OPERADORES
+
+server_cora_backup.js linha 588
+ANTES: ðŸ‘‘ ADMIN
+DEPOIS: 👑 ADMIN
+
+server_cora_backup.js linha 595
+ANTES: ðŸ’° BANCAS
+DEPOIS: 💰 BANCAS
+
+server_cora_backup.js linha 600
+ANTES: ðŸ“¸ OPERADOR
+DEPOIS: 📸 OPERADOR
+
+server_cora_backup.js linha 630
+ANTES:       text: 'â›” Status atualizado: offline'
+DEPOIS:       text: '⛔ Status atualizado: offline'
+
+server_cora_backup.js linha 644
+ANTES:       text: `ðŸ“‹ Operadores online:\n\n${lista}`
+DEPOIS:       text: `📋 Operadores online:\n\n${lista}`
+
+server_cora_backup.js linha 655
+ANTES:       text: 'ðŸ§¹ Fila limpa com sucesso.'
+DEPOIS:       text: '🧹 Fila limpa com sucesso.'
+
+server_cora_backup.js linha 675
+ANTES:         text: 'Operador nÃ£o encontrado.'
+DEPOIS:         text: 'Operador não encontrado.'
+
+server_cora_backup.js linha 687
+ANTES:       text: `â›” Operador ${numero} removido da fila.`
+DEPOIS:       text: `⛔ Operador ${numero} removido da fila.`
+
+server_cora_backup.js linha 700
+ANTES: `ðŸ“Š EstatÃ­sticas
+DEPOIS: `📊 Estatísticas
+
+server_cora_backup.js linha 707
+ANTES: PrÃ³ximo da fila: ${proximo}`
+DEPOIS: Próximo da fila: ${proximo}`
+
+server_cora_backup.js linha 726
+ANTES: `â™»ï¸ Sistema resetado
+DEPOIS: `♻️ Sistema resetado
+
+server_cora_backup.js linha 730
+ANTES: Bancas temporÃ¡rias limpas
+DEPOIS: Bancas temporárias limpas
+
+server_cora_backup.js linha 740
+ANTES:         text: 'âš ï¸ Nenhum operador online.'
+DEPOIS:         text: '⚠️ Nenhum operador online.'
+
+server_cora_backup.js linha 749
+ANTES:         text: 'âš ï¸ Responda a mensagem do cliente com /next.'
+DEPOIS:         text: '⚠️ Responda a mensagem do cliente com /next.'
+
+server_cora_backup.js linha 758
+ANTES:         text: 'âš ï¸ NÃ£o consegui ler a banca respondida.'
+DEPOIS:         text: '⚠️ Não consegui ler a banca respondida.'
+
+server_cora_backup.js linha 797
+ANTES:         text: 'âš ï¸ Responda a mensagem/link do cliente com /pix 500.'
+DEPOIS:         text: '⚠️ Responda a mensagem/link do cliente com /pix 500.'
+
+server_cora_backup.js linha 806
+ANTES:         text: 'âš ï¸ NÃ£o consegui ler a banca respondida.'
+DEPOIS:         text: '⚠️ Não consegui ler a banca respondida.'
+
+server_cora_backup.js linha 813
+ANTES:       `Banca Meia do LucÃ£o - R$ ${valor}`
+DEPOIS:       `Banca Meia do Lucão - R$ ${valor}`
+
+server_cora_backup.js linha 836
+ANTES: `ðŸ’° PIX GERADO
+DEPOIS: `💰 PIX GERADO
+
+server_cora_backup.js linha 846
+ANTES:         text: 'ðŸ“‹ PIX COPIA E COLA:'
+DEPOIS:         text: '📋 PIX COPIA E COLA:'
+
+server_cora_backup.js linha 855
+ANTES:       text: `âœ… Pix criado. ID: ${pix.id}\nAssim que aprovar, a banca serÃ¡ liberada automaticamente.`
+DEPOIS:       text: `✅ Pix criado. ID: ${pix.id}\nAssim que aprovar, a banca será liberada automaticamente.`
+
+server_cora_backup.js linha 866
+ANTES:         text: 'âš ï¸ Responda a banca original com o valor. Ex: /500'
+DEPOIS:         text: '⚠️ Responda a banca original com o valor. Ex: /500'
+
+server_cora_backup.js linha 875
+ANTES:         text: 'âš ï¸ Esta banca ainda nÃ£o foi liberada para operador.'
+DEPOIS:         text: '⚠️ Esta banca ainda não foi liberada para operador.'
+
+server_cora_backup.js linha 883
+ANTES:       text: `ðŸ’° Valor fechado: R$ ${valor}`
+DEPOIS:       text: `💰 Valor fechado: R$ ${valor}`
+
+server_cora_backup.js linha 887
+ANTES:       text: `ðŸ’° Valor enviado para ${banca.operadorNome}`
+DEPOIS:       text: `💰 Valor enviado para ${banca.operadorNome}`
+
+server_cora_backup.js linha 985
+ANTES:       console.log('ConexÃ£o fechada. Reconectar:', shouldReconnect);
+DEPOIS:       console.log('Conexão fechada. Reconectar:', shouldReconnect);
+
+server_texto_backup.js linha 58
+ANTES: âš ï¸ ATENÃ‡ÃƒO - MUITO IMPORTANTE!
+DEPOIS: ⚠️ ATENÇÃO - MUITO IMPORTANTE!
+
+server_texto_backup.js linha 60
+ANTES: Meu nÃºmero de atendimento pode cair a qualquer momento!
+DEPOIS: Meu número de atendimento pode cair a qualquer momento!
+
+server_texto_backup.js linha 62
+ANTES: Se a mensagem NÃƒO CHEGAR, nÃ£o fique sem resposta!
+DEPOIS: Se a mensagem NÃO CHEGAR, não fique sem resposta!
+
+server_texto_backup.js linha 64
+ANTES: ðŸ“ž CHAMA DIRETO NO NÃšMERO RESERVA:
+DEPOIS: 📞 CHAMA DIRETO NO NÚMERO RESERVA:
+
+server_texto_backup.js linha 67
+ANTES: ðŸ•˜ HorÃ¡rio de atendimento:
+DEPOIS: 🕘 Horário de atendimento:
+
+server_texto_backup.js linha 70
+ANTES: ðŸ™ Obrigado pela confianÃ§a!
+DEPOIS: 🙏 Obrigado pela confiança!
+
+server_texto_backup.js linha 72
+ANTES: Att: Equipe Meia do LucÃ£o`;
+DEPOIS: Att: Equipe Meia do Lucão`;
+
+server_texto_backup.js linha 267
+ANTES:     throw new Error('MERCADO_PAGO_ACCESS_TOKEN nÃ£o configurado no Render.');
+DEPOIS:     throw new Error('MERCADO_PAGO_ACCESS_TOKEN não configurado no Render.');
+
+server_texto_backup.js linha 326
+ANTES:     throw new Error('MERCADO_PAGO_ACCESS_TOKEN nÃ£o configurado no Render.');
+DEPOIS:     throw new Error('MERCADO_PAGO_ACCESS_TOKEN não configurado no Render.');
+
+server_texto_backup.js linha 352
+ANTES:       text: 'âœ… Pagamento aprovado.\nâš ï¸ Nenhum operador online no momento. Sua banca ficarÃ¡ aguardando atendimento.'
+DEPOIS:       text: '✅ Pagamento aprovado.\n⚠️ Nenhum operador online no momento. Sua banca ficará aguardando atendimento.'
+
+server_texto_backup.js linha 366
+ANTES: `ðŸ“¥ Nova banca liberada
+DEPOIS: `📥 Nova banca liberada
+
+server_texto_backup.js linha 483
+ANTES:           text: `âš ï¸ Pagamento nÃ£o aprovado. Status: ${data.status}`
+DEPOIS:           text: `⚠️ Pagamento não aprovado. Status: ${data.status}`
+
+server_texto_backup.js linha 576
+ANTES:     throw new Error(`Aba nÃ£o encontrada: ${aba}`);
+DEPOIS:     throw new Error(`Aba não encontrada: ${aba}`);
+
+server_texto_backup.js linha 630
+ANTES:   throw new Error('NÃ£o encontrei linha vazia antes do TOTAL.');
+DEPOIS:   throw new Error('Não encontrei linha vazia antes do TOTAL.');
+
+server_texto_backup.js linha 752
+ANTES: `ðŸ“‹ MENU DE COMANDOS
+DEPOIS: `📋 MENU DE COMANDOS
+
+server_texto_backup.js linha 754
+ANTES: ðŸ‘¨â€ðŸ’» OPERADORES
+DEPOIS: 👨‍💻 OPERADORES
+
+server_texto_backup.js linha 758
+ANTES: ðŸ‘‘ ADMIN
+DEPOIS: 👑 ADMIN
+
+server_texto_backup.js linha 765
+ANTES: ðŸ’° BANCAS
+DEPOIS: 💰 BANCAS
+
+server_texto_backup.js linha 770
+ANTES: ðŸ“¸ OPERADOR
+DEPOIS: 📸 OPERADOR
+
+server_texto_backup.js linha 800
+ANTES:       text: 'â›” Status atualizado: offline'
+DEPOIS:       text: '⛔ Status atualizado: offline'
+
+server_texto_backup.js linha 814
+ANTES:       text: `ðŸ“‹ Operadores online:\n\n${lista}`
+DEPOIS:       text: `📋 Operadores online:\n\n${lista}`
+
+server_texto_backup.js linha 825
+ANTES:       text: 'ðŸ§¹ Fila limpa com sucesso.'
+DEPOIS:       text: '🧹 Fila limpa com sucesso.'
+
+server_texto_backup.js linha 845
+ANTES:         text: 'Operador nÃ£o encontrado.'
+DEPOIS:         text: 'Operador não encontrado.'
+
+server_texto_backup.js linha 857
+ANTES:       text: `â›” Operador ${numero} removido da fila.`
+DEPOIS:       text: `⛔ Operador ${numero} removido da fila.`
+
+server_texto_backup.js linha 870
+ANTES: `ðŸ“Š EstatÃ­sticas
+DEPOIS: `📊 Estatísticas
+
+server_texto_backup.js linha 877
+ANTES: PrÃ³ximo da fila: ${proximo}`
+DEPOIS: Próximo da fila: ${proximo}`
+
+server_texto_backup.js linha 896
+ANTES: `â™»ï¸ Sistema resetado
+DEPOIS: `♻️ Sistema resetado
+
+server_texto_backup.js linha 900
+ANTES: Bancas temporÃ¡rias limpas
+DEPOIS: Bancas temporárias limpas
+
+server_texto_backup.js linha 910
+ANTES:         text: 'âš ï¸ Nenhum operador online.'
+DEPOIS:         text: '⚠️ Nenhum operador online.'
+
+server_texto_backup.js linha 919
+ANTES:         text: 'âš ï¸ Responda a mensagem do cliente com /next.'
+DEPOIS:         text: '⚠️ Responda a mensagem do cliente com /next.'
+
+server_texto_backup.js linha 928
+ANTES:         text: 'âš ï¸ NÃ£o consegui ler a banca respondida.'
+DEPOIS:         text: '⚠️ Não consegui ler a banca respondida.'
+
+server_texto_backup.js linha 1034
+ANTES:         text: 'âš ï¸ Responda a mensagem/link do cliente com /pix 500.'
+DEPOIS:         text: '⚠️ Responda a mensagem/link do cliente com /pix 500.'
+
+server_texto_backup.js linha 1043
+ANTES:         text: 'âš ï¸ NÃ£o consegui ler a banca respondida.'
+DEPOIS:         text: '⚠️ Não consegui ler a banca respondida.'
+
+server_texto_backup.js linha 1050
+ANTES:       `Banca Meia do LucÃ£o - R$ ${valor}`
+DEPOIS:       `Banca Meia do Lucão - R$ ${valor}`
+
+server_texto_backup.js linha 1073
+ANTES: `ðŸ’° PIX GERADO
+DEPOIS: `💰 PIX GERADO
+
+server_texto_backup.js linha 1083
+ANTES:         text: 'ðŸ“‹ PIX COPIA E COLA:'
+DEPOIS:         text: '📋 PIX COPIA E COLA:'
+
+server_texto_backup.js linha 1092
+ANTES:       text: `âœ… Pix criado. ID: ${pix.id}\nAssim que aprovar, a banca serÃ¡ liberada automaticamente.`
+DEPOIS:       text: `✅ Pix criado. ID: ${pix.id}\nAssim que aprovar, a banca será liberada automaticamente.`
+
+server_texto_backup.js linha 1103
+ANTES:         text: 'âš ï¸ Responda a banca original com o valor. Ex: /500'
+DEPOIS:         text: '⚠️ Responda a banca original com o valor. Ex: /500'
+
+server_texto_backup.js linha 1112
+ANTES:         text: 'âš ï¸ Esta banca ainda nÃ£o foi liberada para operador.'
+DEPOIS:         text: '⚠️ Esta banca ainda não foi liberada para operador.'
+
+server_texto_backup.js linha 1120
+ANTES:       text: `ðŸ’° Valor fechado: R$ ${valor}`
+DEPOIS:       text: `💰 Valor fechado: R$ ${valor}`
+
+server_texto_backup.js linha 1124
+ANTES:       text: `ðŸ’° Valor enviado para ${banca.operadorNome}`
+DEPOIS:       text: `💰 Valor enviado para ${banca.operadorNome}`
+
+server_texto_backup.js linha 1222
+ANTES:       console.log('ConexÃ£o fechada. Reconectar:', shouldReconnect);
+DEPOIS:       console.log('Conexão fechada. Reconectar:', shouldReconnect);
+
+whatsapp-baileys-sheets\server.js linha 159
+ANTES:     throw new Error(`Aba nÃ£o encontrada: ${aba}`);
+DEPOIS:     throw new Error(`Aba não encontrada: ${aba}`);
+

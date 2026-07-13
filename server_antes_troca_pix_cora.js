@@ -370,7 +370,7 @@ async function liberarBancaParaOperador(banca) {
 
   const envio = await sock.sendMessage(operador, {
     text:
-`ðŸ“¥ Nova banca liberada
+`📥 Nova banca liberada
 
 Valor: R$ ${banca.valor}
 
@@ -758,11 +758,11 @@ async function processarComandos(msg, texto, remetente, isAdmin) {
       text:
 `📋 MENU DE COMANDOS
 
-ðŸ‘¨â€ðŸ’» OPERADORES
+👨‍💻 OPERADORES
 /opon - entrar na fila
 /opoff - sair da fila
 
-ðŸ‘‘ ADMIN
+👑 ADMIN
 /fila - ver operadores online
 /stats - estatísticas
 /reset - resetar sistema
@@ -774,7 +774,7 @@ async function processarComandos(msg, texto, remetente, isAdmin) {
 /pix 500 - gerar Pix
 /500 - enviar valor para operador
 
-ðŸ“¸ OPERADOR
+📸 OPERADOR
 Responder banca com FOTO
 Limite: 2 fotos por banca`
     });
@@ -804,7 +804,7 @@ Limite: 2 fotos por banca`
     }
 
     await sock.sendMessage(remetente, {
-      text: 'â›” Status atualizado: offline'
+      text: '⛔ Status atualizado: offline'
     });
 
     return true;
@@ -829,7 +829,7 @@ Limite: 2 fotos por banca`
     indiceOperador = 0;
 
     await sock.sendMessage(remetente, {
-      text: 'ðŸ§¹ Fila limpa com sucesso.'
+      text: '🧹 Fila limpa com sucesso.'
     });
 
     return true;
@@ -861,7 +861,7 @@ Limite: 2 fotos por banca`
     }
 
     await sock.sendMessage(remetente, {
-      text: `â›” Operador ${numero} removido da fila.`
+      text: `⛔ Operador ${numero} removido da fila.`
     });
 
     return true;
@@ -900,7 +900,7 @@ Próximo da fila: ${proximo}`
 
     await sock.sendMessage(remetente, {
       text:
-`â™»ï¸ Sistema resetado
+`♻️ Sistema resetado
 
 Fila zerada
 Àndice reiniciado
@@ -914,7 +914,7 @@ Pagamentos pendentes limpos`
   if (comando === '/next') {
     if (!operadoresOnline.length) {
       await sock.sendMessage(remetente, {
-        text: 'âš ï¸ Nenhum operador online.'
+        text: '⚠️ Nenhum operador online.'
       });
       return true;
     }
@@ -923,7 +923,7 @@ Pagamentos pendentes limpos`
 
     if (!quoted.stanzaId) {
       await sock.sendMessage(remetente, {
-        text: 'âš ï¸ Responda a mensagem do cliente com /next.'
+        text: '⚠️ Responda a mensagem do cliente com /next.'
       });
       return true;
     }
@@ -1038,7 +1038,7 @@ ${err.response?.data?.message || err.message}`
 
     if (!quoted.stanzaId) {
       await sock.sendMessage(remetente, {
-        text: 'âš ï¸ Responda a mensagem/link do cliente com /pix 500.'
+        text: '⚠️ Responda a mensagem/link do cliente com /pix 500.'
       });
       return true;
     }
@@ -1107,7 +1107,7 @@ Valor: R$ ${valor.toFixed(2).replace('.', ',')}
 
     if (!quoted.stanzaId) {
       await sock.sendMessage(remetente, {
-        text: 'âš ï¸ Responda a banca original com o valor. Ex: /500'
+        text: '⚠️ Responda a banca original com o valor. Ex: /500'
       });
       return true;
     }

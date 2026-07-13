@@ -1,4 +1,4 @@
-﻿require('dotenv').config();
+require('dotenv').config();
 
 const express = require('express');
 const QRCode = require('qrcode');
@@ -156,7 +156,7 @@ async function garantirAba(sheets, aba) {
   );
 
   if (!existe) {
-    throw new Error(`Aba nÃ£o encontrada: ${aba}`);
+    throw new Error(`Aba não encontrada: ${aba}`);
   }
 }
 

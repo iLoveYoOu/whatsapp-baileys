@@ -59,6 +59,14 @@ const historicoPixRecebidos = [];
 
 const bancasPorMensagemOriginal = new Map();
 const bancasPorMensagemOperador = new Map();
+
+/*
+ * Sessões ativas:
+ * - clienteJid -> banca daquele cliente
+ * - operadorJid -> banca daquele operador
+ */
+const bancaAtivaPorCliente = new Map();
+const bancaAtivaPorOperador = new Map();
 const pagamentosPendentes = new Map();
 const bancasPagasPendentes = [];
 
@@ -1217,6 +1225,8 @@ Próximo da fila: ${proximo}`
     totalPixPagos = 0;
     bancasPorMensagemOriginal.clear();
     bancasPorMensagemOperador.clear();
+    bancaAtivaPorCliente.clear();
+    bancaAtivaPorOperador.clear();
     pagamentosPendentes.clear();
     bancasPagasPendentes.length = 0;
 
@@ -1270,118 +1280,267 @@ Pagamentos pendentes limpos`
     const resultado = await liberarBancaParaOperador(banca);
     return true;
   }
-
-
-  if (comando.startsWith('/pixmp')) {
-    const partes = comando.split(/\s+/);
-    const valor = Number(String(partes[1] || '').replace(',', '.'));
+  if (comando.startsWith('/pix ')) {
+    const partes = String(texto || '').trim().split(/\s+/);
+    const valor = Number(
+      String(partes[1] || '').replace(',', '.')
+    );
 
     if (!valor || valor <= 0) {
       await sock.sendMessage(remetente, {
-        text: 'Use: /pix 500 ou /pixmp 500'
+        text:
+`⚠️ Uso correto:
+
+/pix 500`
       });
+
       return true;
     }
 
-    const quoted = getQuotedInfo(msg.message);
+    try {
+      const quoted = getQuotedInfo(msg.message);
 
-    if (!quoted.stanzaId) {
-      await sock.sendMessage(remetente, {
-        text: 'Ã¢Å¡Â Ã¯Â¸Â Responda a mensagem/link do cliente com /pix 500.'
-      });
-      return true;
-    }
+      /*
+       * Ordem para localizar a banca:
+       *
+       * 1. Mensagem original respondida;
+       * 2. Mensagem enviada ao operador respondida;
+       * 3. Sessão ativa da conversa atual como cliente;
+       * 4. Sessão ativa da conversa atual como operador;
+       * 5. Cobrança avulsa.
+       */
+      let banca = null;
 
-    const textoBanca = textoDaQuotedMessage(quoted.quotedMessage);
+      if (quoted.stanzaId) {
+        banca =
+          bancasPorMensagemOriginal.get(quoted.stanzaId) ||
+          bancasPorMensagemOperador.get(quoted.stanzaId) ||
+          null;
+      }
 
-    if (!textoBanca) {
-      await sock.sendMessage(remetente, {
-        text: 'Ã¢Å¡Â Ã¯Â¸Â Não consegui ler a banca respondida.'
-      });
-      return true;
-    }
+      if (!banca) {
+        banca =
+          bancaAtivaPorCliente.get(remetente) ||
+          bancaAtivaPorOperador.get(remetente) ||
+          null;
+      }
 
-    const pix = await gerarPixMercadoPago(
-      valor,
-      `Banca Meia do Lucão - R$ ${valor}`
-    );
+      /*
+       * O /pix também funciona sem /next.
+       * Nesse caso, cria uma cobrança avulsa para a conversa atual.
+       */
+      if (!banca) {
+        banca = {
+          originalMessageId: '',
+          clienteJid: remetente,
+          textoBanca: 'Cobrança avulsa',
+          valor,
+          fotosEnviadas: 0,
+          pagamentoConfirmado: false,
+          operadorJid: null,
+          operadorNome: null,
+          cobrancaAvulsa: true
+        };
 
-    totalPixGerados++;
+        bancaAtivaPorCliente.set(remetente, banca);
+      }
 
-    const banca = bancasPorMensagemOriginal.get(quoted.stanzaId);
+      const pix = await gerarPixMercadoPago(
+        valor,
+        `Banca Meia do Lucão - R$ ${valor.toFixed(2)}`
+      );
 
-    if (!banca) {
-      await sock.sendMessage(remetente, {
-        text: 'âš ï¸ Primeiro use /next nesse link e aguarde o operador enviar a FOTO 1/2.'
-      });
-      return true;
-    }
+      totalPixGerados++;
 
-    banca.paymentId = pix.id;
-    banca.valor = valor;
+      banca.paymentId = pix.id;
+      banca.valor = valor;
+      banca.pagamentoConfirmado = false;
 
-    pagamentosPendentes.set(String(pix.id), banca);
+      /*
+       * A confirmação automática já utiliza este Map.
+       */
+      pagamentosPendentes.set(
+        String(pix.id),
+        banca
+      );
 
-    if (pix.qr_code_base64) {
-      await sock.sendMessage(remetente, {
-        image: Buffer.from(pix.qr_code_base64, 'base64'),
-        caption:
+      bancaAtivaPorCliente.set(
+        banca.clienteJid,
+        banca
+      );
+
+      if (banca.operadorJid) {
+        bancaAtivaPorOperador.set(
+          banca.operadorJid,
+          banca
+        );
+
+        await sock.sendMessage(banca.operadorJid, {
+          text:
+`💰 VALOR DEFINIDO
+
+Valor: R$ ${valor.toFixed(2).replace('.', ',')}
+
+⏳ Aguardando o pagamento do cliente.
+
+Após a confirmação, você poderá enviar a FOTO 2/2.`
+        });
+      }
+
+      if (pix.qr_code_base64) {
+        await sock.sendMessage(remetente, {
+          image: Buffer.from(
+            pix.qr_code_base64,
+            'base64'
+          ),
+          caption:
 `💰 PIX GERADO
 
 Valor: R$ ${valor.toFixed(2).replace('.', ',')}
 
-Ã¢ÂÂ³ Aguardando pagamento...`
+⏳ Aguardando pagamento...`
+        });
+      }
+
+      if (pix.qr_code) {
+        await sock.sendMessage(remetente, {
+          text: '📋 PIX COPIA E COLA:'
+        });
+
+        await sock.sendMessage(remetente, {
+          text: pix.qr_code
+        });
+      }
+
+      await sock.sendMessage(remetente, {
+        text:
+`✅ Pix criado com sucesso.
+
+ID: ${pix.id}
+
+A confirmação será automática após o pagamento.`
+      });
+    } catch (err) {
+      const detalhes =
+        err.response?.data?.message ||
+        err.response?.data?.cause?.[0]?.description ||
+        err.message ||
+        'Erro desconhecido';
+
+      console.error(
+        'Erro ao gerar Pix Mercado Pago:',
+        err.response?.data || err
+      );
+
+      await sock.sendMessage(remetente, {
+        text:
+`❌ Não foi possível gerar o Pix.
+
+${detalhes}`
       });
     }
-
-    if (pix.qr_code) {
-      await sock.sendMessage(remetente, {
-        text: '📋 PIX COPIA E COLA:'
-      });
-
-      await sock.sendMessage(remetente, {
-        text: pix.qr_code
-      });
-    }
-
-    await sock.sendMessage(remetente, {
-      text: `✅ Pix criado. ID: ${pix.id}\nAssim que aprovar, a banca será liberada automaticamente.`
-    });
 
     return true;
   }
-
+  /*
+   * Liberação manual:
+   *
+   * Responda à banca original com:
+   * /500
+   *
+   * O operador recebe o valor e fica autorizado
+   * a enviar a FOTO 2/2 sem pagamento automático.
+   */
+  /*
+   * Liberação manual:
+   *
+   * Responda à banca original com:
+   * /500
+   *
+   * O operador recebe o valor e fica autorizado
+   * a enviar a FOTO 2/2 sem pagamento automático.
+   */
   if (isComandoValor(comando)) {
     const quoted = getQuotedInfo(msg.message);
 
     if (!quoted.stanzaId) {
       await sock.sendMessage(remetente, {
-        text: 'Ã¢Å¡Â Ã¯Â¸Â Responda a banca original com o valor. Ex: /500'
+        text:
+`⚠️ Responda à mensagem original da banca com o valor.
+
+Exemplo:
+/500`
       });
+
       return true;
     }
 
-    const banca = bancasPorMensagemOriginal.get(quoted.stanzaId);
+    const banca =
+      bancasPorMensagemOriginal.get(quoted.stanzaId) ||
+      bancasPorMensagemOperador.get(quoted.stanzaId);
 
     if (!banca) {
       await sock.sendMessage(remetente, {
-        text: 'Ã¢Å¡Â Ã¯Â¸Â Esta banca ainda não foi liberada para operador.'
+        text:
+`⚠️ Não encontrei uma banca vinculada a essa mensagem.
+
+Primeiro use /next respondendo ao link do cliente.`
       });
+
       return true;
     }
 
-    const valor = valorDoComando(comando);
+    const valorTexto = valorDoComando(comando);
+    const valorNumero = Number(valorTexto);
 
-    await sock.sendMessage(banca.operadorJid, {
-      text: `💰 Valor fechado: R$ ${valor}`
-    });
+    if (!valorNumero || valorNumero <= 0) {
+      await sock.sendMessage(remetente, {
+        text: '⚠️ Valor inválido.'
+      });
+
+      return true;
+    }
+
+    banca.valor = valorNumero;
+    banca.pagamentoConfirmado = true;
+    banca.liberacaoManual = true;
+
+    bancaAtivaPorCliente.set(
+      banca.clienteJid,
+      banca
+    );
+
+    if (banca.operadorJid) {
+      bancaAtivaPorOperador.set(
+        banca.operadorJid,
+        banca
+      );
+
+      await sock.sendMessage(banca.operadorJid, {
+        text:
+`✅ BANCA LIBERADA MANUALMENTE
+
+💰 Valor para depositar:
+R$ ${valorNumero.toFixed(2).replace('.', ',')}
+
+📸 Você já pode enviar a FOTO 2/2.`
+      });
+    }
 
     await sock.sendMessage(remetente, {
-      text: `💰 Valor enviado para ${banca.operadorNome}`
+      text:
+`✅ Liberação manual concluída.
+
+Valor enviado ao operador:
+R$ ${valorNumero.toFixed(2).replace('.', ',')}
+
+${banca.operadorNome || 'Operador'} já pode enviar a FOTO 2/2.`
     });
 
     return true;
   }
+
+
 
   return false;
 }
@@ -1762,6 +1921,8 @@ app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
   conectarWhatsApp();
 });
+
+
 
 
 

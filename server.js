@@ -426,138 +426,116 @@ async function gerarPixCora(valor) {
 /* MERCADO PAGO ORDERS API */
 async function gerarPixMercadoPago(valor, descricao) {
   if (!MP_TOKEN) {
-    throw new Error('MERCADO_PAGO_ACCESS_TOKEN não configurado no Render.');
+    throw new Error(
+      'MERCADO_PAGO_ACCESS_TOKEN não configurado no Render.'
+    );
   }
 
-  const valorFormatado = Number(valor).toFixed(2);
-  const externalReference = `banca_${Date.now()}_${Math.floor(Math.random() * 999999)}`;
+  const numero = Number(valor);
 
-  const resp = await fetch('https://api.mercadopago.com/v1/orders', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${MP_TOKEN}`,
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      'X-Idempotency-Key': externalReference
-    },
-    body: JSON.stringify({
-      type: 'online',
-      total_amount: valorFormatado,
-      external_reference: externalReference,
-      processing_mode: 'automatic',
-      transactions: {
-        payments: [
-          {
-            amount: valorFormatado,
-            payment_method: {
-              id: 'pix',
-              type: 'bank_transfer'
-            }
-          }
-        ]
+  if (!numero || numero <= 0) {
+    throw new Error('Valor inválido.');
+  }
+
+  const idempotencyKey =
+    `pix_${Date.now()}_${Math.floor(Math.random() * 999999)}`;
+
+  const resposta = await fetch(
+    'https://api.mercadopago.com/v1/payments',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${MP_TOKEN}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'X-Idempotency-Key': idempotencyKey
       },
-      payer: {
-        email: `cliente${Date.now()}@email.com`
-      }
-    })
-  });
+      body: JSON.stringify({
+        transaction_amount: numero,
+        description:
+          descricao || `Pix R$ ${numero.toFixed(2)}`,
+        payment_method_id: 'pix',
+        payer: {
+          email:
+            process.env.MERCADO_PAGO_PAYER_EMAIL ||
+            'arthurcesarmaga@gmail.com'
+        },
+        external_reference: idempotencyKey
+      })
+    }
+  );
 
-  const data = await resp.json();
+  const data = await resposta.json();
 
-  if (!resp.ok) {
-    console.error('Erro Mercado Pago Orders:', data);
-    throw new Error(data?.message || 'Erro ao gerar Pix Mercado Pago Orders.');
+  if (!resposta.ok) {
+    console.error('Erro Mercado Pago Payments:', data);
+
+    throw new Error(
+      data?.message ||
+      data?.cause?.[0]?.description ||
+      'Erro ao gerar Pix Mercado Pago.'
+    );
   }
 
-  const payment = data.transactions?.payments?.[0] || {};
-  const method = payment.payment_method || {};
+  const transactionData =
+    data.point_of_interaction?.transaction_data || {};
+
+  const qrCode = transactionData.qr_code || '';
+  const qrCodeBase64 =
+    transactionData.qr_code_base64 || '';
+
+  if (!qrCode) {
+    console.error(
+      'Mercado Pago não retornou Pix Copia e Cola:',
+      data
+    );
+
+    throw new Error(
+      'Mercado Pago não retornou o Pix Copia e Cola.'
+    );
+  }
 
   return {
-    id: data.id,
-    payment_id: payment.id || '',
-    status: data.status,
-    status_detail: data.status_detail,
-    qr_code: method.qr_code || '',
-    qr_code_base64: method.qr_code_base64 || '',
-    ticket_url: method.ticket_url || ''
+    id: String(data.id),
+    payment_id: String(data.id),
+    qr_code: qrCode,
+    qr_code_base64: qrCodeBase64,
+    status: data.status || '',
+    raw: data
   };
 }
 
-async function consultarPagamentoMercadoPago(orderId) {
+async function consultarPagamentoMercadoPago(paymentId) {
   if (!MP_TOKEN) {
-    throw new Error('MERCADO_PAGO_ACCESS_TOKEN não configurado no Render.');
+    throw new Error(
+      'MERCADO_PAGO_ACCESS_TOKEN não configurado no Render.'
+    );
   }
 
-  const resp = await fetch(`https://api.mercadopago.com/v1/orders/${orderId}`, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${MP_TOKEN}`,
-      Accept: 'application/json'
+  const resposta = await fetch(
+    `https://api.mercadopago.com/v1/payments/${paymentId}`,
+    {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${MP_TOKEN}`,
+        Accept: 'application/json'
+      }
     }
-  });
+  );
 
-  const data = await resp.json();
+  const data = await resposta.json();
 
-  if (!resp.ok) {
-    console.error('Erro ao consultar order:', data);
+  if (!resposta.ok) {
+    console.error(
+      'Erro ao consultar pagamento Mercado Pago:',
+      data
+    );
+
     return null;
   }
 
   return data;
 }
-
-async function liberarBancaParaOperador(banca) {
-  if (!operadoresOnline.length) {
-    bancasPagasPendentes.push(banca);
-
-    await sock.sendMessage(banca.clienteJid, {
-      text: '✅ Pagamento aprovado.\nÃ¢Å¡Â Ã¯Â¸Â Nenhum operador online no momento. Sua banca ficará aguardando atendimento.'
-    });
-
-    return { ok: false, pendente: true };
-  }
-
-  const operador = operadoresOnline[indiceOperador];
-  const nomeOperador = operadorNome(operador);
-
-  indiceOperador = (indiceOperador + 1) % operadoresOnline.length;
-  totalBancasEnviadas++;
-
-  const envio = await sock.sendMessage(operador, {
-  text: 'Nova banca liberada' +
-        '\n\nValor: R$ ' + banca.valor +
-        '\n\n' + banca.textoBanca +
-        '\n\nEnvie apenas a FOTO 1/2.' +
-        '\n\nApos o pagamento confirmado, voce podera enviar a FOTO 2/2.'
-});
-
-  banca.operadorJid = operador;
-  banca.operadorNome = nomeOperador;
-  banca.operadorMsgId = envio.key.id;
-  banca.fotosEnviadas = 0;
-  banca.liberada = true;
-  banca.pagamentoConfirmado = false;
-
-  bancasPorMensagemOriginal.set(banca.originalMessageId, banca);
-  bancasPorMensagemOperador.set(envio.key.id, banca);
-
-
-  await sock.sendMessage(banca.clienteJid, {
-    text: `✅ Banca liberada para ${nomeOperador}`
-  });
-
-  return { ok: true, operador: nomeOperador };
-}
-
-async function entregarBancasPendentes() {
-  if (!operadoresOnline.length) return;
-
-  while (bancasPagasPendentes.length && operadoresOnline.length) {
-    const banca = bancasPagasPendentes.shift();
-    await liberarBancaParaOperador(banca);
-  }
-}
-
 setInterval(async () => {
   if (!sock || !MP_TOKEN) return;
 
@@ -1786,6 +1764,7 @@ app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
   conectarWhatsApp();
 });
+
 
 
 

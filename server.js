@@ -26,26 +26,6 @@ const PORT = process.env.PORT || 3000;
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const MP_TOKEN = process.env.MERCADO_PAGO_ACCESS_TOKEN;
 
-const ASAAS_API_KEY = String(process.env.ASAAS_API_KEY || '').trim();
-const ASAAS_BASE_URL = String(
-  process.env.ASAAS_BASE_URL || 'https://api.asaas.com/v3'
-).replace(/\/+$/, '');
-
-const ASAAS_CUSTOMER_ID = String(
-  process.env.ASAAS_CUSTOMER_ID || ''
-).trim();
-
-const ASAAS_CUSTOMER_NAME = String(
-  process.env.ASAAS_CUSTOMER_NAME || 'Cliente Pix WhatsApp'
-).trim();
-
-const ASAAS_CUSTOMER_EMAIL = String(
-  process.env.ASAAS_CUSTOMER_EMAIL || 'pix@meiadolucao.com'
-).trim();
-
-const ASAAS_CUSTOMER_CPF_CNPJ = String(
-  process.env.ASAAS_CUSTOMER_CPF_CNPJ || ''
-).replace(/\D/g, '');
 const CORA_CLIENT_ID = String(process.env.CORA_CLIENT_ID || '').trim();
 const CORA_CERT_PATH = process.env.CORA_CERT_PATH || './certs/certificate.pem';
 const CORA_KEY_PATH = process.env.CORA_KEY_PATH || './certs/private-key.key';
@@ -306,142 +286,6 @@ async function baixarImagem(message) {
 
   return buffer;
 }
-/* ASAAS API */
-
-function headersAsaas() {
-  if (!ASAAS_API_KEY) {
-    throw new Error('ASAAS_API_KEY não configurada.');
-  }
-
-  return {
-    access_token: ASAAS_API_KEY,
-    'Content-Type': 'application/json',
-    Accept: 'application/json',
-    'User-Agent': 'WhatsApp-Baileys-Pix/1.0'
-  };
-}
-
-async function obterClienteAsaas() {
-  if (ASAAS_CUSTOMER_ID) {
-    return ASAAS_CUSTOMER_ID;
-  }
-
-  if (!ASAAS_CUSTOMER_CPF_CNPJ) {
-    throw new Error(
-      'Configure ASAAS_CUSTOMER_ID ou ASAAS_CUSTOMER_CPF_CNPJ.'
-    );
-  }
-
-  const externalReference = 'whatsapp-baileys-pix';
-
-  const consulta = await axios.get(
-    `${ASAAS_BASE_URL}/customers`,
-    {
-      headers: headersAsaas(),
-      params: {
-        externalReference,
-        limit: 1
-      },
-      timeout: 30000
-    }
-  );
-
-  const clienteExistente = consulta.data?.data?.[0];
-
-  if (clienteExistente?.id) {
-    return clienteExistente.id;
-  }
-
-  const resposta = await axios.post(
-    `${ASAAS_BASE_URL}/customers`,
-    {
-      name: ASAAS_CUSTOMER_NAME,
-      email: ASAAS_CUSTOMER_EMAIL,
-      cpfCnpj: ASAAS_CUSTOMER_CPF_CNPJ,
-      externalReference
-    },
-    {
-      headers: headersAsaas(),
-      timeout: 30000
-    }
-  );
-
-  if (!resposta.data?.id) {
-    throw new Error('Asaas não retornou o ID do cliente.');
-  }
-
-  return resposta.data.id;
-}
-
-async function gerarPixAsaas(valor) {
-  const numero = Number(valor);
-
-  if (!numero || numero < 5) {
-    throw new Error('Valor mínimo: R$ 5,00.');
-  }
-
-  const customerId = await obterClienteAsaas();
-
-  const vencimento = new Date();
-  vencimento.setDate(vencimento.getDate() + 1);
-
-  const cobranca = await axios.post(
-    `${ASAAS_BASE_URL}/payments`,
-    {
-      customer: customerId,
-      billingType: 'PIX',
-      value: numero,
-      dueDate: vencimento.toISOString().slice(0, 10),
-      description: `Pix WhatsApp R$ ${numero.toFixed(2)}`,
-      externalReference: `whatsapp-pix-${Date.now()}`
-    },
-    {
-      headers: headersAsaas(),
-      timeout: 30000
-    }
-  );
-
-  const paymentId = cobranca.data?.id;
-
-  if (!paymentId) {
-    throw new Error('Asaas não retornou o ID da cobrança.');
-  }
-
-  const qr = await axios.get(
-    `${ASAAS_BASE_URL}/payments/${paymentId}/pixQrCode`,
-    {
-      headers: headersAsaas(),
-      timeout: 30000
-    }
-  );
-
-  const emv = qr.data?.payload || '';
-  const qrCodeBase64 = qr.data?.encodedImage || '';
-
-  if (!emv) {
-    throw new Error('Asaas não retornou o Pix Copia e Cola.');
-  }
-
-  return {
-    id: paymentId,
-    emv,
-    qrCodeBase64,
-    expirationDate: qr.data?.expirationDate || null
-  };
-}
-
-async function consultarCobrancaAsaas(paymentId) {
-  const resposta = await axios.get(
-    `${ASAAS_BASE_URL}/payments/${paymentId}/status`,
-    {
-      headers: headersAsaas(),
-      timeout: 30000
-    }
-  );
-
-  return resposta.data;
-}
-
 /* CORA API - LEGADO NÃO UTILIZADO */
 function lerPem(valorEnv, caminhoArquivo) {
   if (valorEnv) return String(valorEnv).replace(/\\n/g, '\n');
@@ -719,40 +563,6 @@ setInterval(async () => {
 
   for (const [paymentId, banca] of pagamentosPendentes.entries()) {
     try {
-            if (banca.tipo === 'asaas') {
-        const data = await consultarCobrancaAsaas(banca.paymentId || banca.invoiceId);
-        const statusAsaas = String(data.status || '').toUpperCase();
-
-        if (['RECEIVED', 'CONFIRMED'].includes(statusAsaas)) {
-          pagamentosPendentes.delete(paymentId);
-          totalPixPagos++;
-
-          if (banca.banca) {
-            banca.banca.pagamentoConfirmado = true;
-
-            await sock.sendMessage(banca.clienteJid, {
-              text: MSG_DEPOSITO_CONFIRMADO
-            });
-
-            if (banca.banca.operadorJid) {
-              await sock.sendMessage(banca.banca.operadorJid, {
-                text:
-`💰 PAGAMENTO CONFIRMADO
-
-Banca liberada.
-
-Agora você pode enviar a FOTO 2/2.`
-              });
-            }
-          } else {
-            await sock.sendMessage(banca.clienteJid, {
-              text: '✅ Pagamento confirmado.'
-            });
-          }
-        }
-
-        continue;
-      }
       const data = await consultarPagamentoMercadoPago(paymentId);
       if (!data) continue;
 
@@ -1102,7 +912,12 @@ async function mensagemDeAdmin(msg) {
 }
 
 async function processarComandos(msg, texto, remetente, isAdmin) {
-  const comando = String(texto || '').trim().toLowerCase();
+  let comando = String(texto || '').trim().toLowerCase();
+  // /pix usa Mercado Pago como provedor principal
+  if (/^\/pix\s+/i.test(comando)) {
+    comando = comando.replace(/^\/pix\b/i, '/pixmp');
+  }
+
 
   if (comando === '/menu' || comando === '/ajuda') {
     await sock.sendMessage(remetente, {
@@ -1479,87 +1294,7 @@ Pagamentos pendentes limpos`
     const resultado = await liberarBancaParaOperador(banca);
     return true;
   }
-if (comando.startsWith('/pix ')) {
-  const partes = String(texto || '').trim().split(/\s+/);
-  const valor = Number(String(partes[1] || '').replace(',', '.'));
 
-  if (!valor || valor < 5) {
-    await sock.sendMessage(remetente, {
-      text: 'Use: /pix 5\nValor mínimo: R$ 5,00'
-    });
-
-    return true;
-  }
-
-  try {
-    const pix = await gerarPixAsaas(valor);
-
-    const quoted = getQuotedInfo(msg.message);
-
-    const banca = quoted.stanzaId
-      ? bancasPorMensagemOriginal.get(quoted.stanzaId)
-      : null;
-
-    pagamentosPendentes.set(String(pix.id), {
-      tipo: 'asaas',
-      paymentId: pix.id,
-      invoiceId: pix.id,
-      valor,
-      clienteJid: remetente,
-      banca
-    });
-
-    totalPixGerados++;
-
-    if (pix.qrCodeBase64) {
-      await sock.sendMessage(remetente, {
-        image: Buffer.from(pix.qrCodeBase64, 'base64'),
-        caption:
-`💰 PIX GERADO
-
-Valor: R$ ${valor.toFixed(2).replace('.', ',')}
-
-Banco: Asaas`
-      });
-    }
-
-    await sock.sendMessage(remetente, {
-      text: '📋 PIX COPIA E COLA:'
-    });
-
-    await sock.sendMessage(remetente, {
-      text: pix.emv
-    });
-
-    await sock.sendMessage(remetente, {
-      text:
-`✅ Pix criado pelo Asaas.
-
-ID: ${pix.id}
-
-Assim que o pagamento for confirmado, o sistema continuará o fluxo automaticamente.`
-    });
-  } catch (err) {
-    const detalhes =
-      err.response?.data?.errors?.[0]?.description ||
-      err.response?.data?.message ||
-      err.message;
-
-    console.error(
-      'Erro Pix Asaas:',
-      err.response?.data || err.message
-    );
-
-    await sock.sendMessage(remetente, {
-      text:
-`❌ Erro ao gerar Pix Asaas.
-
-${detalhes}`
-    });
-  }
-
-  return true;
-}
 
   if (comando.startsWith('/pixmp')) {
     const partes = comando.split(/\s+/);
@@ -1567,7 +1302,7 @@ ${detalhes}`
 
     if (!valor || valor <= 0) {
       await sock.sendMessage(remetente, {
-        text: 'Use: /pixmp 500'
+        text: 'Use: /pix 500 ou /pixmp 500'
       });
       return true;
     }
@@ -2051,6 +1786,7 @@ app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
   conectarWhatsApp();
 });
+
 
 
 

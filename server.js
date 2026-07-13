@@ -456,9 +456,7 @@ async function gerarPixMercadoPago(valor, descricao) {
           descricao || `Pix R$ ${numero.toFixed(2)}`,
         payment_method_id: 'pix',
         payer: {
-          email:
-            process.env.MERCADO_PAGO_PAYER_EMAIL ||
-            'arthurcesarmaga@gmail.com'
+          email: "arthurcesarmaga@gmail.com"
         },
         external_reference: idempotencyKey
       })
@@ -1764,6 +1762,7 @@ app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
   conectarWhatsApp();
 });
+
 
 
 

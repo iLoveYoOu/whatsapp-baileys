@@ -1,4 +1,4 @@
-﻿
+
 require('dotenv').config();
 const fs = require('fs');
 const https = require('https');
@@ -1296,30 +1296,31 @@ ${lista}
   }
 
   if (comando === '/stats') {
-    normalizarFilaOperadores();
     const proximo = operadoresOnline.length
-      ? operadorNome(operadoresOnline[indiceOperador])
+      ? `Operador ${indiceOperador + 1}`
       : 'Nenhum';
 
-    const memoriaMb = Math.round(process.memoryUsage().rss / 1024 / 1024);
+    const tempoOnline = formatarDuracao(
+      Date.now() - inicioProcesso
+    );
 
     await sock.sendMessage(remetente, {
       text:
 `📊 ESTATÍSTICAS
 
-🟢 Tempo online: ${formatarDuracao(Date.now() - inicioProcesso)}
-🧠 Memória: ${memoriaMb} MB
+🟢 Tempo online: ${tempoOnline}
 
 💰 Pix gerados: ${totalPixGerados}
 ✅ Pix pagos: ${totalPixPagos}
 📦 Bancas liberadas: ${totalBancasEnviadas}
-â³ Bancas pendentes: ${bancasPagasPendentes.length}
+💳 Bancas pendentes: ${bancasPagasPendentes.length}
 💳 Pagamentos pendentes: ${pagamentosPendentes.size}
 
 👥 Operadores online: ${operadoresOnline.length}
 ⭐ Próximo da fila: ${proximo}
 🚫 Blacklist: ${blacklistCache.length}`
     });
+
     return true;
   }
 

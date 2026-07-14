@@ -27,6 +27,25 @@ const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const MP_TOKEN = process.env.MERCADO_PAGO_ACCESS_TOKEN;
 
 
+
+const EMOJI = Object.freeze({
+  OK: '✅',
+  ERRO: '⛔',
+  ALERTA: '⚠️',
+  PIX: '💰',
+  PESSOA: '👤',
+  DINHEIRO: '💵',
+  FOTO: '📸',
+  OPERADOR: '👨‍💻',
+  ESTATISTICAS: '📊',
+  FILA: '📋',
+  FERRAMENTA: '🛠️',
+  ESTRELA: '⭐',
+  RECICLAR: '♻️',
+  LIMPAR: '🧹',
+  GRUPO: '👥'
+});
+
 let sock = null;
 let qrAtual = '';
 let status = 'iniciando';
@@ -849,7 +868,7 @@ Após a confirmação do pagamento, você poderá enviar a FOTO 2/2.`
   totalBancasEnviadas++;
 
   await sock.sendMessage(banca.clienteJid, {
-    text: `âœ… Banca liberada para ${nomeOperador}`
+    text: `${EMOJI.OK} Banca liberada para ${banca.operadorNome}`
   });
 
   return { ok: true, operadorJid, operadorNome: nomeOperador };
@@ -1030,7 +1049,7 @@ Limite: 2 fotos por banca`
     const relatorio = gerarRelatorioPix('📊 FECHAMENTO PIX');
 
     await sock.sendMessage(remetente, {
-      text: relatorio + "\n\nâœ… Dia encerrado"
+      text: relatorio + "\n\n✅ Dia encerrado"
     });
 
     const dataHoje = dataPixBR();
@@ -1085,7 +1104,7 @@ Limite: 2 fotos por banca`
 
     await sock.sendMessage(remetente, {
       text:
-`âœ… ADICIONADO Ã€ BLACKLIST
+`✅ ADICIONADO Ã€ BLACKLIST
 
 👤 ${nome}
 
@@ -1174,7 +1193,7 @@ Total: ${lista.length}`
 
     await sock.sendMessage(remetente, {
       text:
-`âœ… REMOVIDO DA BLACKLIST
+`✅ REMOVIDO DA BLACKLIST
 
 👤 ${nome}`
     });
@@ -1292,7 +1311,7 @@ ${lista}
 🧠 Memória: ${memoriaMb} MB
 
 💰 Pix gerados: ${totalPixGerados}
-âœ… Pix pagos: ${totalPixPagos}
+✅ Pix pagos: ${totalPixPagos}
 📦 Bancas liberadas: ${totalBancasEnviadas}
 â³ Bancas pendentes: ${bancasPagasPendentes.length}
 💳 Pagamentos pendentes: ${pagamentosPendentes.size}
@@ -1514,7 +1533,7 @@ Valor: R$ ${valor.toFixed(2).replace('.', ',')}
 
       await sock.sendMessage(remetente, {
         text:
-`âœ… Pix criado com sucesso.
+`✅ Pix criado com sucesso.
 
 ID: ${pix.id}
 
@@ -1609,7 +1628,7 @@ Primeiro use /next respondendo ao link do cliente.`
 
       await sock.sendMessage(banca.operadorJid, {
         text:
-`âœ… BANCA LIBERADA MANUALMENTE
+`${EMOJI.OK} BANCA LIBERADA MANUALMENTE
 
 💰 Valor para depositar:
 R$ ${valorNumero.toFixed(2).replace('.', ',')}
@@ -1688,7 +1707,7 @@ async function processarFotoOperador(msg, remetente) {
   banca.fotosEnviadas++;
 
   await sock.sendMessage(remetente, {
-    text: `âœ… Banca enviada ao cliente. (${banca.fotosEnviadas}/2)`
+    text: `✅ Banca enviada ao cliente. (${banca.fotosEnviadas}/2)`
   });
 
   return true;

@@ -1,4 +1,4 @@
-
+﻿
 require('dotenv').config();
 const fs = require('fs');
 const https = require('https');
@@ -137,7 +137,7 @@ const bancasPorMensagemOriginal = new Map();
 const bancasPorMensagemOperador = new Map();
 
 /*
- * Sessões ativas:
+ * SessÃµes ativas:
  * - clienteJid -> banca daquele cliente
  * - operadorJid -> banca daquele operador
  */
@@ -147,23 +147,23 @@ const pagamentosPendentes = new Map();
 const bancasPagasPendentes = [];
 
 const MSG_DEPOSITO_CONFIRMADO =
-`✅ DEU CERTO! DEPÓSITO CONFIRMADO!
+`âœ… DEU CERTO! DEPÃ“SITO CONFIRMADO!
 
-⚠️ ATENÇÃO - MUITO IMPORTANTE!
+âš ï¸ ATENÃ‡ÃƒO - MUITO IMPORTANTE!
 
-Meu número de atendimento pode cair a qualquer momento!
+Meu nÃºmero de atendimento pode cair a qualquer momento!
 
-Se a mensagem NÃO CHEGAR, não fique sem resposta!
+Se a mensagem NÃƒO CHEGAR, nÃ£o fique sem resposta!
 
-📲 CHAMA DIRETO NO NÚMERO RESERVA:
+ðŸ“² CHAMA DIRETO NO NÃšMERO RESERVA:
 48 98425-5049
 
-🕐 Horário de atendimento:
-Todos os dias das 09:00 às 00:30
+ðŸ• HorÃ¡rio de atendimento:
+Todos os dias das 09:00 Ã s 00:30
 
-🙏 Obrigado pela confiança!
+ðŸ™ Obrigado pela confianÃ§a!
 
-Att: Equipe Meia do Lucão`;
+Att: Equipe Meia do LucÃ£o`;
 
 function operadorNome(jid) {
   return operadoresInfo.get(jid)?.nome || 'Operador';
@@ -264,7 +264,7 @@ async function carregarBlacklistRemota() {
   blacklistCache = carregarBlacklistLocal();
 
   if (!BLACKLIST_GIST_ID || !BLACKLIST_GITHUB_TOKEN) {
-    console.warn('Gist não configurado. Blacklist usando apenas arquivo local.');
+    console.warn('Gist nÃ£o configurado. Blacklist usando apenas arquivo local.');
     return blacklistCache;
   }
 
@@ -280,7 +280,7 @@ async function carregarBlacklistRemota() {
     const arquivo = resposta.data?.files?.['blacklist.json'];
 
     if (!arquivo) {
-      throw new Error('blacklist.json não encontrado no Gist.');
+      throw new Error('blacklist.json nÃ£o encontrado no Gist.');
     }
 
     const lista = JSON.parse(arquivo.content || '[]');
@@ -348,7 +348,7 @@ async function salvarBlacklist(lista) {
 }
 
 function extrairNomePix(texto) {
-  const match = String(texto || '').match(/👤\s*(.+)/i);
+  const match = String(texto || '').match(/ðŸ‘¤\s*(.+)/i);
   return match ? String(match[1]).trim() : '';
 }
 
@@ -373,14 +373,14 @@ async function baixarImagem(message) {
 async function gerarPixMercadoPago(valor, descricao) {
   if (!MP_TOKEN) {
     throw new Error(
-      'MERCADO_PAGO_ACCESS_TOKEN não configurado no Render.'
+      'MERCADO_PAGO_ACCESS_TOKEN nÃ£o configurado no Render.'
     );
   }
 
   const numero = Number(valor);
 
   if (!numero || numero <= 0) {
-    throw new Error('Valor inválido.');
+    throw new Error('Valor invÃ¡lido.');
   }
 
   const idempotencyKey =
@@ -430,12 +430,12 @@ async function gerarPixMercadoPago(valor, descricao) {
 
   if (!qrCode) {
     console.error(
-      'Mercado Pago não retornou Pix Copia e Cola:',
+      'Mercado Pago nÃ£o retornou Pix Copia e Cola:',
       data
     );
 
     throw new Error(
-      'Mercado Pago não retornou o Pix Copia e Cola.'
+      'Mercado Pago nÃ£o retornou o Pix Copia e Cola.'
     );
   }
 
@@ -452,7 +452,7 @@ async function gerarPixMercadoPago(valor, descricao) {
 async function consultarPagamentoMercadoPago(paymentId) {
   if (!MP_TOKEN) {
     throw new Error(
-      'MERCADO_PAGO_ACCESS_TOKEN não configurado no Render.'
+      'MERCADO_PAGO_ACCESS_TOKEN nÃ£o configurado no Render.'
     );
   }
 
@@ -505,11 +505,11 @@ setInterval(async () => {
         if (banca.operadorJid) {
           await sock.sendMessage(banca.operadorJid, {
             text:
-`💰 PAGAMENTO CONFIRMADO
+`ðŸ’° PAGAMENTO CONFIRMADO
 
 Banca liberada.
 
-Agora você pode enviar a FOTO 2/2.`
+Agora vocÃª pode enviar a FOTO 2/2.`
           });
         }
       }
@@ -522,7 +522,7 @@ Agora você pode enviar a FOTO 2/2.`
         pagamentosPendentes.delete(paymentId);
 
         await sock.sendMessage(banca.clienteJid, {
-          text: `⚠️ Pagamento não aprovado. Status: ${data.status}`
+          text: `âš ï¸ Pagamento nÃ£o aprovado. Status: ${data.status}`
         });
       }
     } catch (err) {
@@ -615,7 +615,7 @@ async function garantirAba(sheets, aba) {
   );
 
   if (!existe) {
-    throw new Error(`Aba não encontrada: ${aba}`);
+    throw new Error(`Aba nÃ£o encontrada: ${aba}`);
   }
 }
 
@@ -669,7 +669,7 @@ async function proximaLinhaColunaB(sheets, aba) {
     if (!colunaB) return i + 2;
   }
 
-  throw new Error('Não encontrei linha vazia antes do TOTAL.');
+  throw new Error('NÃ£o encontrei linha vazia antes do TOTAL.');
 }
 
 async function salvarNaPlanilha({ texto, messageId }) {
@@ -801,7 +801,7 @@ async function apagarDaPlanilha(messageId) {
 }
 
 
-/* FILA E DISTRIBUIÇÃO DE BANCAS */
+/* FILA E DISTRIBUIÃ‡ÃƒO DE BANCAS */
 async function liberarBancaParaOperador(banca) {
   normalizarFilaOperadores();
 
@@ -811,7 +811,7 @@ async function liberarBancaParaOperador(banca) {
     }
 
     await sock.sendMessage(banca.clienteJid, {
-      text: '⚠️ Nenhum operador online no momento. Sua banca ficou aguardando atendimento.'
+      text: 'âš ï¸ Nenhum operador online no momento. Sua banca ficou aguardando atendimento.'
     });
 
     return { ok: false, pendente: true };
@@ -827,12 +827,12 @@ async function liberarBancaParaOperador(banca) {
 
   const envio = await sock.sendMessage(operadorJid, {
     text:
-`📥 NOVA BANCA
+`ðŸ“¥ NOVA BANCA
 
 ${banca.textoBanca}
 
-📸 Envie a FOTO 1/2 respondendo a esta mensagem.
-Após a confirmação do pagamento, você poderá enviar a FOTO 2/2.`
+ðŸ“¸ Envie a FOTO 1/2 respondendo a esta mensagem.
+ApÃ³s a confirmaÃ§Ã£o do pagamento, vocÃª poderÃ¡ enviar a FOTO 2/2.`
   });
 
   const mensagemOperadorId = envio?.key?.id || '';
@@ -849,7 +849,7 @@ Após a confirmação do pagamento, você poderá enviar a FOTO 2/2.`
   totalBancasEnviadas++;
 
   await sock.sendMessage(banca.clienteJid, {
-    text: `✅ Banca liberada para ${nomeOperador}`
+    text: `âœ… Banca liberada para ${nomeOperador}`
   });
 
   return { ok: true, operadorJid, operadorNome: nomeOperador };
@@ -901,12 +901,12 @@ function desbugarFila() {
 /* COMANDOS */
 
 async function mensagemDeAdmin(msg) {
-  // O próprio número conectado ao Baileys sempre é admin
+  // O prÃ³prio nÃºmero conectado ao Baileys sempre Ã© admin
   if (msg?.key?.fromMe) return true;
 
   const grupoJid = msg?.key?.remoteJid || '';
 
-  // Fora de grupo, outros números não recebem permissão administrativa
+  // Fora de grupo, outros nÃºmeros nÃ£o recebem permissÃ£o administrativa
   if (!grupoJid.endsWith('@g.us')) return false;
 
   const autorJid =
@@ -941,26 +941,26 @@ async function processarComandos(msg, texto, remetente, isAdmin, autorJid, autor
   if (comando === '/menu' || comando === '/ajuda') {
     await sock.sendMessage(remetente, {
       text:
-`📋 MENU DE COMANDOS
+`ðŸ“‹ MENU DE COMANDOS
 
-👨‍💻 OPERADORES
+ðŸ‘¨â€ðŸ’» OPERADORES
 /opon - entrar na fila
 /opoff - sair da fila
 
-👑 ADMIN
+ðŸ‘‘ ADMIN
 /fila - ver operadores online
-/stats - estatísticas
+/stats - estatÃ­sticas
 /reset - resetar sistema
 /clearfila - limpar fila
 /kickop 1 - remover operador
 /desbugafila - verificar e reparar fila
 
-💰 BANCAS
+ðŸ’° BANCAS
 /next - liberar banca manual
 /pix 500 - gerar Pix
 /500 - enviar valor para operador
 
-📸 OPERADOR
+ðŸ“¸ OPERADOR
 Responder banca com FOTO
 Limite: 2 fotos por banca`
     });
@@ -970,7 +970,7 @@ Limite: 2 fotos por banca`
 
   if (comando === '/opon') {
     if (!autorJid) {
-      await sock.sendMessage(remetente, { text: '⚠️ Não consegui identificar seu número.' });
+      await sock.sendMessage(remetente, { text: 'âš ï¸ NÃ£o consegui identificar seu nÃºmero.' });
       return true;
     }
 
@@ -978,10 +978,10 @@ Limite: 2 fotos por banca`
 
     await sock.sendMessage(remetente, {
       text:
-`✅ ${autorNome} está online.
+`âœ… ${autorNome} estÃ¡ online.
 
-📍 Posição na fila: ${resultado.posicao}
-👥 Operadores online: ${resultado.total}`
+ðŸ“ PosiÃ§Ã£o na fila: ${resultado.posicao}
+ðŸ‘¥ Operadores online: ${resultado.total}`
     });
 
     await entregarBancasPendentes();
@@ -993,9 +993,9 @@ Limite: 2 fotos por banca`
 
     await sock.sendMessage(remetente, {
       text:
-`⛔ ${autorNome} está offline.
+`â›” ${autorNome} estÃ¡ offline.
 
-👥 Operadores online: ${operadoresOnline.length}${saiu ? '' : '\nℹ️ Você já não estava na fila.'}`
+ðŸ‘¥ Operadores online: ${operadoresOnline.length}${saiu ? '' : '\nâ„¹ï¸ VocÃª jÃ¡ nÃ£o estava na fila.'}`
     });
 
     return true;
@@ -1008,7 +1008,7 @@ Limite: 2 fotos por banca`
     let lista = '';
 
     for (const grupo of Object.values(grupos)) {
-      lista += `📌 ${grupo.subject}` + "\n" + `🆔 ${grupo.id}` + "\n\n";
+      lista += `ðŸ“Œ ${grupo.subject}` + "\n" + `ðŸ†” ${grupo.id}` + "\n\n";
     }
 
     await sock.sendMessage(remetente, {
@@ -1020,17 +1020,17 @@ Limite: 2 fotos por banca`
   
   if (comando === '/pixrel') {
     await sock.sendMessage(remetente, {
-      text: gerarRelatorioPix('📊 RELATÓRIO PIX')
+      text: gerarRelatorioPix('ðŸ“Š RELATÃ“RIO PIX')
     });
 
     return true;
   }
 
   if (comando === '/pixfechar') {
-    const relatorio = gerarRelatorioPix('📊 FECHAMENTO PIX');
+    const relatorio = gerarRelatorioPix('ðŸ“Š FECHAMENTO PIX');
 
     await sock.sendMessage(remetente, {
-      text: relatorio + "\n\n✅ Dia encerrado"
+      text: relatorio + "\n\nâœ… Dia encerrado"
     });
 
     const dataHoje = dataPixBR();
@@ -1053,7 +1053,7 @@ Limite: 2 fotos por banca`
     if (!quoted.stanzaId || !nome) {
       await sock.sendMessage(remetente, {
         text:
-`⚠️ Responda a uma mensagem de PIX RECEBIDO com:
+`âš ï¸ Responda a uma mensagem de PIX RECEBIDO com:
 
 /addblacklist`
       });
@@ -1068,7 +1068,7 @@ Limite: 2 fotos por banca`
 
     if (jaExiste) {
       await sock.sendMessage(remetente, {
-        text: `⚠️ ${nome} já está na blacklist.`
+        text: `âš ï¸ ${nome} jÃ¡ estÃ¡ na blacklist.`
       });
 
       return true;
@@ -1085,11 +1085,11 @@ Limite: 2 fotos por banca`
 
     await sock.sendMessage(remetente, {
       text:
-`✅ ADICIONADO À BLACKLIST
+`âœ… ADICIONADO Ã€ BLACKLIST
 
-👤 ${nome}
+ðŸ‘¤ ${nome}
 
-Novos Pix com esse nome receberão alerta automático.`
+Novos Pix com esse nome receberÃ£o alerta automÃ¡tico.`
     });
 
     return true;
@@ -1100,7 +1100,7 @@ Novos Pix com esse nome receberão alerta automático.`
 
     if (!lista.length) {
       await sock.sendMessage(remetente, {
-        text: '✅ A blacklist está vazia.'
+        text: 'âœ… A blacklist estÃ¡ vazia.'
       });
 
       return true;
@@ -1118,7 +1118,7 @@ Novos Pix com esse nome receberão alerta automático.`
 
     await sock.sendMessage(remetente, {
       text:
-`🚫 BLACKLIST PIX
+`ðŸš« BLACKLIST PIX
 
 ${linhas.join('\n\n')}
 
@@ -1143,7 +1143,7 @@ Total: ${lista.length}`
     if (!nome) {
       await sock.sendMessage(remetente, {
         text:
-`⚠️ Use uma destas formas:
+`âš ï¸ Use uma destas formas:
 
 1. Responda ao PIX com:
 /removeblacklist
@@ -1164,7 +1164,7 @@ Total: ${lista.length}`
 
     if (novaLista.length === lista.length) {
       await sock.sendMessage(remetente, {
-        text: `⚠️ ${nome} não foi encontrado na blacklist.`
+        text: `âš ï¸ ${nome} nÃ£o foi encontrado na blacklist.`
       });
 
       return true;
@@ -1174,9 +1174,9 @@ Total: ${lista.length}`
 
     await sock.sendMessage(remetente, {
       text:
-`✅ REMOVIDO DA BLACKLIST
+`âœ… REMOVIDO DA BLACKLIST
 
-👤 ${nome}`
+ðŸ‘¤ ${nome}`
     });
 
     return true;
@@ -1187,7 +1187,7 @@ Total: ${lista.length}`
     const reparo = desbugarFila();
     const lista = operadoresOnline.length
       ? operadoresOnline.map((jid, i) => {
-          const marcador = i === indiceOperador ? '➡️' : `${i + 1}.`;
+          const marcador = i === indiceOperador ? 'âž¡ï¸' : `${i + 1}.`;
           return `${marcador} ${operadorNome(jid)}`;
         }).join('\n')
       : 'Nenhum operador online.';
@@ -1198,21 +1198,21 @@ Total: ${lista.length}`
 
     await sock.sendMessage(remetente, {
       text:
-`🛠️ DESBUGA FILA
+`ðŸ› ï¸ DESBUGA FILA
 
-👥 Operadores online: ${operadoresOnline.length}
+ðŸ‘¥ Operadores online: ${operadoresOnline.length}
 ${lista}
 
-⏭️ Próximo: ${proximo}
-📦 Bancas ativas: ${bancaAtivaPorCliente.size}
-💳 Pagamentos pendentes: ${pagamentosPendentes.size}
+â­ï¸ PrÃ³ximo: ${proximo}
+ðŸ“¦ Bancas ativas: ${bancaAtivaPorCliente.size}
+ðŸ’³ Pagamentos pendentes: ${pagamentosPendentes.size}
 
-🔧 Reparos executados:
-• Duplicados removidos: ${reparo.duplicadosRemovidos}
-• Bancas órfãs removidas: ${reparo.bancasOrfas}
-• Pagamentos inválidos removidos: ${reparo.pagamentosInvalidos}
+ðŸ”§ Reparos executados:
+â€¢ Duplicados removidos: ${reparo.duplicadosRemovidos}
+â€¢ Bancas Ã³rfÃ£s removidas: ${reparo.bancasOrfas}
+â€¢ Pagamentos invÃ¡lidos removidos: ${reparo.pagamentosInvalidos}
 
-✅ Fila verificada e reconstruída.`
+âœ… Fila verificada e reconstruÃ­da.`
     });
 
     return true;
@@ -1222,13 +1222,13 @@ ${lista}
     normalizarFilaOperadores();
     const lista = operadoresOnline.length
       ? operadoresOnline.map((jid, i) => {
-          const marcador = i === indiceOperador ? '➡️' : `${i + 1}.`;
+          const marcador = i === indiceOperador ? 'âž¡ï¸' : `${i + 1}.`;
           return `${marcador} ${operadorNome(jid)}`;
         }).join('\n')
       : 'Nenhum operador online.';
 
     await sock.sendMessage(remetente, {
-      text: `📋 FILA DE OPERADORES\n\n${lista}`
+      text: `ðŸ“‹ FILA DE OPERADORES\n\n${lista}`
     });
     return true;
   }
@@ -1238,7 +1238,7 @@ ${lista}
     indiceOperador = 0;
 
     await sock.sendMessage(remetente, {
-      text: '🧹 Fila limpa com sucesso.'
+      text: 'ðŸ§¹ Fila limpa com sucesso.'
     });
 
     return true;
@@ -1258,7 +1258,7 @@ ${lista}
 
     if (!numero || numero < 1 || numero > operadoresOnline.length) {
       await sock.sendMessage(remetente, {
-        text: 'Operador não encontrado.'
+        text: 'Operador nÃ£o encontrado.'
       });
       return true;
     }
@@ -1270,7 +1270,7 @@ ${lista}
     }
 
     await sock.sendMessage(remetente, {
-      text: `⛔ Operador ${numero} removido da fila.`
+      text: `â›” Operador ${numero} removido da fila.`
     });
 
     return true;
@@ -1286,20 +1286,20 @@ ${lista}
 
     await sock.sendMessage(remetente, {
       text:
-`📊 ESTATÍSTICAS
+`ðŸ“Š ESTATÃSTICAS
 
-🟢 Tempo online: ${formatarDuracao(Date.now() - inicioProcesso)}
-🧠 Memória: ${memoriaMb} MB
+ðŸŸ¢ Tempo online: ${formatarDuracao(Date.now() - inicioProcesso)}
+ðŸ§  MemÃ³ria: ${memoriaMb} MB
 
-💰 Pix gerados: ${totalPixGerados}
-✅ Pix pagos: ${totalPixPagos}
-📦 Bancas liberadas: ${totalBancasEnviadas}
-⏳ Bancas pendentes: ${bancasPagasPendentes.length}
-💳 Pagamentos pendentes: ${pagamentosPendentes.size}
+ðŸ’° Pix gerados: ${totalPixGerados}
+âœ… Pix pagos: ${totalPixPagos}
+ðŸ“¦ Bancas liberadas: ${totalBancasEnviadas}
+â³ Bancas pendentes: ${bancasPagasPendentes.length}
+ðŸ’³ Pagamentos pendentes: ${pagamentosPendentes.size}
 
-👥 Operadores online: ${operadoresOnline.length}
-⏭️ Próximo da fila: ${proximo}
-🚫 Blacklist: ${blacklistCache.length}`
+ðŸ‘¥ Operadores online: ${operadoresOnline.length}
+â­ï¸ PrÃ³ximo da fila: ${proximo}
+ðŸš« Blacklist: ${blacklistCache.length}`
     });
     return true;
   }
@@ -1320,11 +1320,11 @@ ${lista}
 
     await sock.sendMessage(remetente, {
       text:
-`♻️ Sistema resetado
+`â™»ï¸ Sistema resetado
 
 Fila zerada
-Índice reiniciado
-Bancas temporárias limpas
+Ãndice reiniciado
+Bancas temporÃ¡rias limpas
 Pagamentos pendentes limpos`
     });
 
@@ -1335,7 +1335,7 @@ Pagamentos pendentes limpos`
     normalizarFilaOperadores();
     if (!operadoresOnline.length) {
       await sock.sendMessage(remetente, {
-        text: '⚠️ Nenhum operador online.'
+        text: 'âš ï¸ Nenhum operador online.'
       });
       return true;
     }
@@ -1344,7 +1344,7 @@ Pagamentos pendentes limpos`
 
     if (!quoted.stanzaId) {
       await sock.sendMessage(remetente, {
-        text: '⚠️ Responda a mensagem do cliente com /next.'
+        text: 'âš ï¸ Responda a mensagem do cliente com /next.'
       });
       return true;
     }
@@ -1353,7 +1353,7 @@ Pagamentos pendentes limpos`
 
     if (!textoBanca) {
       await sock.sendMessage(remetente, {
-        text: '⚠️ Não consegui ler a banca respondida.'
+        text: 'âš ï¸ NÃ£o consegui ler a banca respondida.'
       });
       return true;
     }
@@ -1363,7 +1363,18 @@ Pagamentos pendentes limpos`
       clienteJid: msg.key.remoteJid,
       textoBanca,
       valor: 'manual',
-      fotosEnviadas: 0
+      fotosEnviadas: 0,
+
+      // Mensagem original para responder com as fotos
+      mensagemOriginal: {
+        key: {
+          remoteJid: msg.key.remoteJid,
+          fromMe: false,
+          id: quoted.stanzaId,
+          participant: quoted.participant || undefined
+        },
+        message: quoted.quotedMessage
+      }
     };
 
     const resultado = await liberarBancaParaOperador(banca);
@@ -1378,7 +1389,7 @@ Pagamentos pendentes limpos`
     if (!valor || valor <= 0) {
       await sock.sendMessage(remetente, {
         text:
-`⚠️ Uso correto:
+`âš ï¸ Uso correto:
 
 /pix 500`
       });
@@ -1394,9 +1405,9 @@ Pagamentos pendentes limpos`
        *
        * 1. Mensagem original respondida;
        * 2. Mensagem enviada ao operador respondida;
-       * 3. Sessão ativa da conversa atual como cliente;
-       * 4. Sessão ativa da conversa atual como operador;
-       * 5. Cobrança avulsa.
+       * 3. SessÃ£o ativa da conversa atual como cliente;
+       * 4. SessÃ£o ativa da conversa atual como operador;
+       * 5. CobranÃ§a avulsa.
        */
       let banca = null;
 
@@ -1415,14 +1426,14 @@ Pagamentos pendentes limpos`
       }
 
       /*
-       * O /pix também funciona sem /next.
-       * Nesse caso, cria uma cobrança avulsa para a conversa atual.
+       * O /pix tambÃ©m funciona sem /next.
+       * Nesse caso, cria uma cobranÃ§a avulsa para a conversa atual.
        */
       if (!banca) {
         banca = {
           originalMessageId: '',
           clienteJid: remetente,
-          textoBanca: 'Cobrança avulsa',
+          textoBanca: 'CobranÃ§a avulsa',
           valor,
           fotosEnviadas: 0,
           pagamentoConfirmado: false,
@@ -1436,7 +1447,7 @@ Pagamentos pendentes limpos`
 
       const pix = await gerarPixMercadoPago(
         valor,
-        `Banca Meia do Lucão - R$ ${valor.toFixed(2)}`
+        `Banca Meia do LucÃ£o - R$ ${valor.toFixed(2)}`
       );
 
       totalPixGerados++;
@@ -1446,7 +1457,7 @@ Pagamentos pendentes limpos`
       banca.pagamentoConfirmado = false;
 
       /*
-       * A confirmação automática já utiliza este Map.
+       * A confirmaÃ§Ã£o automÃ¡tica jÃ¡ utiliza este Map.
        */
       pagamentosPendentes.set(
         String(pix.id),
@@ -1466,13 +1477,13 @@ Pagamentos pendentes limpos`
 
         await sock.sendMessage(banca.operadorJid, {
           text:
-`💰 VALOR DEFINIDO
+`ðŸ’° VALOR DEFINIDO
 
 Valor: R$ ${valor.toFixed(2).replace('.', ',')}
 
-⏳ Aguardando o pagamento do cliente.
+â³ Aguardando o pagamento do cliente.
 
-Após a confirmação, você poderá enviar a FOTO 2/2.`
+ApÃ³s a confirmaÃ§Ã£o, vocÃª poderÃ¡ enviar a FOTO 2/2.`
         });
       }
 
@@ -1483,17 +1494,17 @@ Após a confirmação, você poderá enviar a FOTO 2/2.`
             'base64'
           ),
           caption:
-`💰 PIX GERADO
+`ðŸ’° PIX GERADO
 
 Valor: R$ ${valor.toFixed(2).replace('.', ',')}
 
-⏳ Aguardando pagamento...`
+â³ Aguardando pagamento...`
         });
       }
 
       if (pix.qr_code) {
         await sock.sendMessage(remetente, {
-          text: '📋 PIX COPIA E COLA:'
+          text: 'ðŸ“‹ PIX COPIA E COLA:'
         });
 
         await sock.sendMessage(remetente, {
@@ -1503,11 +1514,11 @@ Valor: R$ ${valor.toFixed(2).replace('.', ',')}
 
       await sock.sendMessage(remetente, {
         text:
-`✅ Pix criado com sucesso.
+`âœ… Pix criado com sucesso.
 
 ID: ${pix.id}
 
-A confirmação será automática após o pagamento.`
+A confirmaÃ§Ã£o serÃ¡ automÃ¡tica apÃ³s o pagamento.`
       });
     } catch (err) {
       const detalhes =
@@ -1523,7 +1534,7 @@ A confirmação será automática após o pagamento.`
 
       await sock.sendMessage(remetente, {
         text:
-`❌ Não foi possível gerar o Pix.
+`âŒ NÃ£o foi possÃ­vel gerar o Pix.
 
 ${detalhes}`
       });
@@ -1532,13 +1543,13 @@ ${detalhes}`
     return true;
   }
   /*
-   * Liberação manual:
+   * LiberaÃ§Ã£o manual:
    *
-   * Responda à banca original com:
+   * Responda Ã  banca original com:
    * /500
    *
    * O operador recebe o valor e fica autorizado
-   * a enviar a FOTO 2/2 sem pagamento automático.
+   * a enviar a FOTO 2/2 sem pagamento automÃ¡tico.
    */
   if (isComandoValor(comando)) {
     const quoted = getQuotedInfo(msg.message);
@@ -1546,7 +1557,7 @@ ${detalhes}`
     if (!quoted.stanzaId) {
       await sock.sendMessage(remetente, {
         text:
-`⚠️ Responda à mensagem original da banca com o valor.
+`âš ï¸ Responda Ã  mensagem original da banca com o valor.
 
 Exemplo:
 /500`
@@ -1562,7 +1573,7 @@ Exemplo:
     if (!banca) {
       await sock.sendMessage(remetente, {
         text:
-`⚠️ Não encontrei uma banca vinculada a essa mensagem.
+`âš ï¸ NÃ£o encontrei uma banca vinculada a essa mensagem.
 
 Primeiro use /next respondendo ao link do cliente.`
       });
@@ -1575,7 +1586,7 @@ Primeiro use /next respondendo ao link do cliente.`
 
     if (!valorNumero || valorNumero <= 0) {
       await sock.sendMessage(remetente, {
-        text: '⚠️ Valor inválido.'
+        text: 'âš ï¸ Valor invÃ¡lido.'
       });
 
       return true;
@@ -1598,23 +1609,23 @@ Primeiro use /next respondendo ao link do cliente.`
 
       await sock.sendMessage(banca.operadorJid, {
         text:
-`✅ BANCA LIBERADA MANUALMENTE
+`âœ… BANCA LIBERADA MANUALMENTE
 
-💰 Valor para depositar:
+ðŸ’° Valor para depositar:
 R$ ${valorNumero.toFixed(2).replace('.', ',')}
 
-📸 Você já pode enviar a FOTO 2/2.`
+ðŸ“¸ VocÃª jÃ¡ pode enviar a FOTO 2/2.`
       });
     }
 
     await sock.sendMessage(remetente, {
       text:
-`✅ Liberação manual concluída.
+`âœ… LiberaÃ§Ã£o manual concluÃ­da.
 
 Valor enviado ao operador:
 R$ ${valorNumero.toFixed(2).replace('.', ',')}
 
-${banca.operadorNome || 'Operador'} já pode enviar a FOTO 2/2.`
+${banca.operadorNome || 'Operador'} jÃ¡ pode enviar a FOTO 2/2.`
     });
 
     return true;
@@ -1640,7 +1651,7 @@ async function processarFotoOperador(msg, remetente) {
 
   if (banca.operadorJid !== remetente) {
     await sock.sendMessage(remetente, {
-      text: '⚠️ Esta banca não está vinculada a você.'
+      text: 'âš ï¸ Esta banca nÃ£o estÃ¡ vinculada a vocÃª.'
     });
     return true;
   }
@@ -1650,22 +1661,34 @@ async function processarFotoOperador(msg, remetente) {
   if (banca.fotosEnviadas >= limiteFotos) {
     await sock.sendMessage(remetente, {
       text: banca.pagamentoConfirmado
-        ? '⛔ FOTO 2/2 já enviada. Limite final atingido.'
-        : '⛔ Aguarde o pagamento do cliente para enviar a FOTO 2/2.'
+        ? 'â›” FOTO 2/2 jÃ¡ enviada. Limite final atingido.'
+        : 'â›” Aguarde o pagamento do cliente para enviar a FOTO 2/2.'
     });
     return true;
   }
 
   const buffer = await baixarImagem(msg.message);
 
-  await sock.sendMessage(banca.clienteJid, {
-    image: buffer
-  });
+  if (banca.mensagemOriginal?.message) {
+    await sock.sendMessage(
+      banca.clienteJid,
+      {
+        image: buffer
+      },
+      {
+        quoted: banca.mensagemOriginal
+      }
+    );
+  } else {
+    await sock.sendMessage(banca.clienteJid, {
+      image: buffer
+    });
+  }
 
   banca.fotosEnviadas++;
 
   await sock.sendMessage(remetente, {
-    text: `✅ Banca enviada ao cliente. (${banca.fotosEnviadas}/2)`
+    text: `âœ… Banca enviada ao cliente. (${banca.fotosEnviadas}/2)`
   });
 
   return true;
@@ -1699,7 +1722,7 @@ async function conectarWhatsApp() {
     if (qr) {
       qrAtual = qr;
       status = 'aguardando_qr';
-      console.log('QR disponível em /qr');
+      console.log('QR disponÃ­vel em /qr');
     }
 
     if (connection === 'open') {
@@ -1715,7 +1738,7 @@ async function conectarWhatsApp() {
 
       status = shouldReconnect ? 'reconectando' : 'deslogado';
 
-      console.log('Conexão fechada. Reconectar:', shouldReconnect);
+      console.log('ConexÃ£o fechada. Reconectar:', shouldReconnect);
 
       if (shouldReconnect) {
         setTimeout(() => conectarWhatsApp(), 5000);
@@ -1835,9 +1858,9 @@ function gerarRelatorioPix(titulo) {
   if (!itens.length) {
     return `${titulo}
 
-📅 ${dataHoje}
+ðŸ“… ${dataHoje}
 
-Nenhum PIX registrado até agora.`;
+Nenhum PIX registrado atÃ© agora.`;
   }
 
   const porCliente = {};
@@ -1856,7 +1879,7 @@ Nenhum PIX registrado até agora.`;
 
   let texto = `${titulo}
 
-📅 ${dataHoje}
+ðŸ“… ${dataHoje}
 
 `;
 
@@ -1864,15 +1887,15 @@ Nenhum PIX registrado até agora.`;
     totalGeral += dados.total;
     qtdGeral += dados.qtd;
 
-    texto += `👤 ${cliente}
+    texto += `ðŸ‘¤ ${cliente}
 Qtd: ${dados.qtd}
 Total: ${moedaBR(dados.total)}
 
 `;
   }
 
-  texto += `💰 TOTAL GERAL: ${moedaBR(totalGeral)}
-🔢 QTD GERAL: ${qtdGeral}`;
+  texto += `ðŸ’° TOTAL GERAL: ${moedaBR(totalGeral)}
+ðŸ”¢ QTD GERAL: ${qtdGeral}`;
 
   return texto;
 }
@@ -1884,14 +1907,14 @@ app.post('/pix/:cliente', async (req, res) => {
     if (!destino) {
       return res.status(404).json({
         sucesso: false,
-        erro: 'Cliente não cadastrado'
+        erro: 'Cliente nÃ£o cadastrado'
       });
     }
 
     if (!sock) {
       return res.status(503).json({
         sucesso: false,
-        erro: 'WhatsApp não conectado'
+        erro: 'WhatsApp nÃ£o conectado'
       });
     }
 
@@ -1917,27 +1940,27 @@ app.post('/pix/:cliente', async (req, res) => {
     const registroFraude = buscarNaBlacklist(nome);
 
     const mensagemPix = registroFraude
-      ? `━━━━━━━━━━━━━━━━━━━━━━
+      ? `â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 
-💰 PIX RECEBIDO
+ðŸ’° PIX RECEBIDO
 
-👤 ${nome}
-💵 R$ ${valor}
+ðŸ‘¤ ${nome}
+ðŸ’µ R$ ${valor}
 
-🔴 STATUS: SUSPEITO
+ðŸ”´ STATUS: SUSPEITO
 
 Motivo:
-• Nome presente na lista de fraude.
+â€¢ Nome presente na lista de fraude.
 
-Ação recomendada:
-❌ Não liberar saldo
-👤 Encaminhar para análise
+AÃ§Ã£o recomendada:
+âŒ NÃ£o liberar saldo
+ðŸ‘¤ Encaminhar para anÃ¡lise
 
-━━━━━━━━━━━━━━━━━━━━━━`
-      : `💰 PIX RECEBIDO
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”`
+      : `ðŸ’° PIX RECEBIDO
 
-👤 ${nome}
-💵 R$ ${valor}`;
+ðŸ‘¤ ${nome}
+ðŸ’µ R$ ${valor}`;
 
     await sock.sendMessage(destino, {
       text: mensagemPix
@@ -1964,7 +1987,7 @@ app.get('/ping', (req, res) => {
 
 app.get('/', (req, res) => {
   res.send(`
-    <h2>WhatsApp → Google Sheets</h2>
+    <h2>WhatsApp â†’ Google Sheets</h2>
     <p>Status: <b>${status}</b></p>
     <p><a href="/qr">Abrir QR Code</a></p>
   `);
@@ -1987,7 +2010,7 @@ app.get('/qr', async (req, res) => {
   if (!qrAtual) {
     return res.send(`
       <h3>Status: ${status}</h3>
-      <p>Nenhum QR disponível</p>
+      <p>Nenhum QR disponÃ­vel</p>
     `);
   }
 
@@ -2003,6 +2026,7 @@ app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
   conectarWhatsApp();
 });
+
 
 
 

@@ -11,6 +11,16 @@ const pino = require('pino');
 const { google } = require('googleapis');
 
 const {
+  E,
+  msgValorDefinido,
+  msgPixGerado,
+  msgBancaLiberadaManual,
+  msgPixRecebido,
+  msgStats
+} = require('./src/ui');
+
+
+const {
   default: makeWASocket,
   useMultiFileAuthState,
   DisconnectReason,
@@ -1296,30 +1306,22 @@ ${lista}
   }
 
   if (comando === '/stats') {
-    normalizarFilaOperadores();
     const proximo = operadoresOnline.length
-      ? operadorNome(operadoresOnline[indiceOperador])
+      ? operadorNome(operadoresOnline[indiceOperador] || operadoresOnline[0])
       : 'Nenhum';
 
-    const memoriaMb = Math.round(process.memoryUsage().rss / 1024 / 1024);
-
     await sock.sendMessage(remetente, {
-      text:
-`📊 ESTATÍSTICAS
-
-🟢 Tempo online: ${formatarDuracao(Date.now() - inicioProcesso)}
-🧠 Memória: ${memoriaMb} MB
-
-💰 Pix gerados: ${totalPixGerados}
-✅ Pix pagos: ${totalPixPagos}
-📦 Bancas liberadas: ${totalBancasEnviadas}
-â³ Bancas pendentes: ${bancasPagasPendentes.length}
-💳 Pagamentos pendentes: ${pagamentosPendentes.size}
-
-👥 Operadores online: ${operadoresOnline.length}
-⭐ Próximo da fila: ${proximo}
-🚫 Blacklist: ${blacklistCache.length}`
+      text: msgStats({
+        pixGerados: totalPixGerados,
+        pixPagos: totalPixPagos,
+        bancasLiberadas: totalBancasEnviadas,
+        pagamentosPendentes: pagamentosPendentes.size,
+        operadoresOnline: operadoresOnline.length,
+        proximo,
+        blacklist: blacklistCache.length
+      })
     });
+
     return true;
   }
 
@@ -1495,145 +1497,7 @@ Pagamentos pendentes limpos`
         );
 
         await sock.sendMessage(banca.operadorJid, {
-          text:
-`💰 VALOR DEFINIDO
-
-Valor: R$ ${valor.toFixed(2).replace('.', ',')}
-
-â³ Aguardando o pagamento do cliente.
-
-Após a confirmação, você poderá enviar a FOTO 2/2.`
-        });
-      }
-
-      if (pix.qr_code_base64) {
-        await sock.sendMessage(remetente, {
-          image: Buffer.from(
-            pix.qr_code_base64,
-            'base64'
-          ),
-          caption:
-`💰 PIX GERADO
-
-Valor: R$ ${valor.toFixed(2).replace('.', ',')}
-
-â³ Aguardando pagamento...`
-        });
-      }
-
-      if (pix.qr_code) {
-        await sock.sendMessage(remetente, {
-          text: '📋 PIX COPIA E COLA:'
-        });
-
-        await sock.sendMessage(remetente, {
-          text: pix.qr_code
-        });
-      }
-
-      await sock.sendMessage(remetente, {
-        text:
-`✅ Pix criado com sucesso.
-
-ID: ${pix.id}
-
-A confirmação será automática após o pagamento.`
-      });
-    } catch (err) {
-      const detalhes =
-        err.response?.data?.message ||
-        err.response?.data?.cause?.[0]?.description ||
-        err.message ||
-        'Erro desconhecido';
-
-      console.error(
-        'Erro ao gerar Pix Mercado Pago:',
-        err.response?.data || err
-      );
-
-      await sock.sendMessage(remetente, {
-        text:
-`âŒ NÃ£o foi possÃ­vel gerar o Pix.
-
-${detalhes}`
-      });
-    }
-
-    return true;
-  }
-  /*
-   * Liberação manual:
-   *
-   * Responda à banca original com:
-   * /500
-   *
-   * O operador recebe o valor e fica autorizado
-   * a enviar a FOTO 2/2 sem pagamento automático.
-   */
-  if (isComandoValor(comando)) {
-    const quoted = getQuotedInfo(msg.message);
-
-    if (!quoted.stanzaId) {
-      await sock.sendMessage(remetente, {
-        text:
-`⚠️ Responda à mensagem original da banca com o valor.
-
-Exemplo:
-/500`
-      });
-
-      return true;
-    }
-
-    const banca =
-      bancasPorMensagemOriginal.get(quoted.stanzaId) ||
-      bancasPorMensagemOperador.get(quoted.stanzaId);
-
-    if (!banca) {
-      await sock.sendMessage(remetente, {
-        text:
-`⚠️ Não encontrei uma banca vinculada a essa mensagem.
-
-Primeiro use /next respondendo ao link do cliente.`
-      });
-
-      return true;
-    }
-
-    const valorTexto = valorDoComando(comando);
-    const valorNumero = Number(valorTexto);
-
-    if (!valorNumero || valorNumero <= 0) {
-      await sock.sendMessage(remetente, {
-        text: '⚠️ Valor inválido.'
-      });
-
-      return true;
-    }
-
-    banca.valor = valorNumero;
-    banca.pagamentoConfirmado = true;
-    banca.liberacaoManual = true;
-
-    bancaAtivaPorCliente.set(
-      banca.clienteJid,
-      banca
-    );
-
-    if (banca.operadorJid) {
-      bancaAtivaPorOperador.set(
-        banca.operadorJid,
-        banca
-      );
-
-      await sock.sendMessage(banca.operadorJid, {
-        text:
-`${EMOJI.OK} BANCA LIBERADA MANUALMENTE
-
-💰 Valor para depositar:
-R$ ${valorNumero.toFixed(2).replace('.', ',')}
-
-📸 Você já pode enviar a FOTO 2/2.`
+          text: msgValorDefinido(valor)
       });
     }
 
@@ -1958,28 +1822,11 @@ app.post('/pix/:cliente', async (req, res) => {
     });
     const registroFraude = buscarNaBlacklist(nome);
 
-    const mensagemPix = registroFraude
-      ? `â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
-
-💰 PIX RECEBIDO
-
-👤 ${nome}
-💵 R$ ${valor}
-
-🔴 STATUS: SUSPEITO
-
-Motivo:
-• Nome presente na lista de fraude.
-
-Ação recomendada:
-âŒ NÃ£o liberar saldo
-👤 Encaminhar para análise
-
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”`
-      : `💰 PIX RECEBIDO
-
-👤 ${nome}
-💵 R$ ${valor}`;
+    const mensagemPix = msgPixRecebido(
+      nome,
+      valor,
+      Boolean(registroFraude)
+    );
 
     await sock.sendMessage(destino, {
       text: mensagemPix

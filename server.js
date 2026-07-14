@@ -42,6 +42,85 @@ function entrarNaFila(tarefa) {
 
 let operadoresOnline = [];
 let indiceOperador = 0;
+const operadoresInfo = new Map();
+const inicioProcesso = Date.now();
+
+function autorDaMensagem(msg) {
+  const remoto = msg?.key?.remoteJid || '';
+  if (remoto.endsWith('@g.us')) {
+    return msg?.key?.participant || msg?.participant || '';
+  }
+  return remoto;
+}
+
+function nomeDaMensagem(msg, jid) {
+  const nome = String(msg?.pushName || '').trim();
+  if (nome) return nome;
+  const numero = String(jid || '').split('@')[0];
+  return numero ? `Operador ${numero.slice(-4)}` : 'Operador';
+}
+
+function normalizarFilaOperadores() {
+  const antes = operadoresOnline.length;
+  const vistos = new Set();
+  operadoresOnline = operadoresOnline.filter(jid => {
+    if (!jid || typeof jid !== 'string') return false;
+    if (!jid.endsWith('@s.whatsapp.net') && !jid.endsWith('@lid')) return false;
+    if (vistos.has(jid)) return false;
+    vistos.add(jid);
+    return true;
+  });
+
+  if (!operadoresOnline.length || indiceOperador >= operadoresOnline.length || indiceOperador < 0) {
+    indiceOperador = 0;
+  }
+
+  return antes - operadoresOnline.length;
+}
+
+function entrarOperadorNaFila(jid, nome) {
+  normalizarFilaOperadores();
+  const existente = operadoresOnline.includes(jid);
+  if (!existente) operadoresOnline.push(jid);
+
+  operadoresInfo.set(jid, {
+    jid,
+    nome: nome || operadoresInfo.get(jid)?.nome || 'Operador',
+    entrouEm: operadoresInfo.get(jid)?.entrouEm || new Date().toISOString(),
+    ultimaAtividade: new Date().toISOString()
+  });
+
+  return {
+    novo: !existente,
+    posicao: operadoresOnline.indexOf(jid) + 1,
+    total: operadoresOnline.length
+  };
+}
+
+function sairOperadorDaFila(jid) {
+  const antes = operadoresOnline.length;
+  operadoresOnline = operadoresOnline.filter(op => op !== jid);
+  normalizarFilaOperadores();
+  return antes !== operadoresOnline.length;
+}
+
+function proximoOperadorDaFila() {
+  normalizarFilaOperadores();
+  if (!operadoresOnline.length) return null;
+
+  const jid = operadoresOnline[indiceOperador];
+  indiceOperador = (indiceOperador + 1) % operadoresOnline.length;
+  const info = operadoresInfo.get(jid);
+  if (info) info.ultimaAtividade = new Date().toISOString();
+  return jid;
+}
+
+function formatarDuracao(ms) {
+  const totalSegundos = Math.floor(ms / 1000);
+  const horas = Math.floor(totalSegundos / 3600);
+  const minutos = Math.floor((totalSegundos % 3600) / 60);
+  return `${horas}h ${minutos}min`;
+}
 let totalBancasEnviadas = 0;
 let totalPixGerados = 0;
 let totalPixPagos = 0;
@@ -87,8 +166,7 @@ Todos os dias das 09:00 às 00:30
 Att: Equipe Meia do Lucão`;
 
 function operadorNome(jid) {
-  const index = operadoresOnline.indexOf(jid);
-  return index >= 0 ? `Operador ${index + 1}` : 'Operador';
+  return operadoresInfo.get(jid)?.nome || 'Operador';
 }
 
 function isComandoValor(texto) {
@@ -444,7 +522,7 @@ Agora você pode enviar a FOTO 2/2.`
         pagamentosPendentes.delete(paymentId);
 
         await sock.sendMessage(banca.clienteJid, {
-          text: `Ã¢Å¡Â Ã¯Â¸Â Pagamento não aprovado. Status: ${data.status}`
+          text: `⚠️ Pagamento não aprovado. Status: ${data.status}`
         });
       }
     } catch (err) {
@@ -615,7 +693,9 @@ async function salvarNaPlanilha({ texto, messageId }) {
     const sacado = Number(sacadoTxt);
 
     if (depositoTxt === '' || sacadoTxt === '' || !casa) continue;
-    if (Number.isNaN(deposito) || Number.isNaN(sacado)) continue;    const regrasFixas = {
+    if (Number.isNaN(deposito) || Number.isNaN(sacado)) continue;
+
+    const regrasFixas = {
       301: { banca: 200, lucro: 100 },
       401: { banca: 280, lucro: 120 },
       501: { banca: 360, lucro: 140 },
@@ -720,6 +800,104 @@ async function apagarDaPlanilha(messageId) {
   return linhas.length > 0;
 }
 
+
+/* FILA E DISTRIBUIÇÃO DE BANCAS */
+async function liberarBancaParaOperador(banca) {
+  normalizarFilaOperadores();
+
+  if (!operadoresOnline.length) {
+    if (!bancasPagasPendentes.includes(banca)) {
+      bancasPagasPendentes.push(banca);
+    }
+
+    await sock.sendMessage(banca.clienteJid, {
+      text: '⚠️ Nenhum operador online no momento. Sua banca ficou aguardando atendimento.'
+    });
+
+    return { ok: false, pendente: true };
+  }
+
+  const operadorJid = proximoOperadorDaFila();
+  const nomeOperador = operadorNome(operadorJid);
+
+  banca.operadorJid = operadorJid;
+  banca.operadorNome = nomeOperador;
+  banca.pagamentoConfirmado = Boolean(banca.pagamentoConfirmado);
+  banca.fotosEnviadas = Number(banca.fotosEnviadas || 0);
+
+  const envio = await sock.sendMessage(operadorJid, {
+    text:
+`📥 NOVA BANCA
+
+${banca.textoBanca}
+
+📸 Envie a FOTO 1/2 respondendo a esta mensagem.
+Após a confirmação do pagamento, você poderá enviar a FOTO 2/2.`
+  });
+
+  const mensagemOperadorId = envio?.key?.id || '';
+
+  if (banca.originalMessageId) {
+    bancasPorMensagemOriginal.set(banca.originalMessageId, banca);
+  }
+  if (mensagemOperadorId) {
+    bancasPorMensagemOperador.set(mensagemOperadorId, banca);
+  }
+
+  bancaAtivaPorCliente.set(banca.clienteJid, banca);
+  bancaAtivaPorOperador.set(operadorJid, banca);
+  totalBancasEnviadas++;
+
+  await sock.sendMessage(banca.clienteJid, {
+    text: `✅ Banca liberada para ${nomeOperador}`
+  });
+
+  return { ok: true, operadorJid, operadorNome: nomeOperador };
+}
+
+async function entregarBancasPendentes() {
+  normalizarFilaOperadores();
+  while (operadoresOnline.length && bancasPagasPendentes.length) {
+    const banca = bancasPagasPendentes.shift();
+    try {
+      await liberarBancaParaOperador(banca);
+    } catch (err) {
+      console.error('[FILA] Erro ao entregar banca pendente:', err);
+      bancasPagasPendentes.unshift(banca);
+      break;
+    }
+  }
+}
+
+function desbugarFila() {
+  const duplicadosRemovidos = normalizarFilaOperadores();
+  let bancasOrfas = 0;
+
+  for (const [jid, banca] of bancaAtivaPorOperador.entries()) {
+    if (!banca || banca.operadorJid !== jid) {
+      bancaAtivaPorOperador.delete(jid);
+      bancasOrfas++;
+    }
+  }
+
+  for (const [jid, banca] of bancaAtivaPorCliente.entries()) {
+    if (!banca || banca.clienteJid !== jid) {
+      bancaAtivaPorCliente.delete(jid);
+      bancasOrfas++;
+    }
+  }
+
+  let pagamentosInvalidos = 0;
+  for (const [id, banca] of pagamentosPendentes.entries()) {
+    if (!id || !banca || !banca.clienteJid) {
+      pagamentosPendentes.delete(id);
+      pagamentosInvalidos++;
+    }
+  }
+
+  return { duplicadosRemovidos, bancasOrfas, pagamentosInvalidos };
+}
+
 /* COMANDOS */
 
 async function mensagemDeAdmin(msg) {
@@ -755,7 +933,7 @@ async function mensagemDeAdmin(msg) {
   }
 }
 
-async function processarComandos(msg, texto, remetente, isAdmin) {
+async function processarComandos(msg, texto, remetente, isAdmin, autorJid, autorNome) {
   let comando = String(texto || '').trim().toLowerCase();
 
 
@@ -775,6 +953,7 @@ async function processarComandos(msg, texto, remetente, isAdmin) {
 /reset - resetar sistema
 /clearfila - limpar fila
 /kickop 1 - remover operador
+/desbugafila - verificar e reparar fila
 
 💰 BANCAS
 /next - liberar banca manual
@@ -790,28 +969,33 @@ Limite: 2 fotos por banca`
   }
 
   if (comando === '/opon') {
-    if (!operadoresOnline.includes(remetente)) {
-      operadoresOnline.push(remetente);
+    if (!autorJid) {
+      await sock.sendMessage(remetente, { text: '⚠️ Não consegui identificar seu número.' });
+      return true;
     }
 
+    const resultado = entrarOperadorNaFila(autorJid, autorNome);
+
     await sock.sendMessage(remetente, {
-      text: '✅ Status atualizado: online'
+      text:
+`✅ ${autorNome} está online.
+
+📍 Posição na fila: ${resultado.posicao}
+👥 Operadores online: ${resultado.total}`
     });
 
     await entregarBancasPendentes();
-
     return true;
   }
 
   if (comando === '/opoff') {
-    operadoresOnline = operadoresOnline.filter(op => op !== remetente);
-
-    if (indiceOperador >= operadoresOnline.length) {
-      indiceOperador = 0;
-    }
+    const saiu = sairOperadorDaFila(autorJid);
 
     await sock.sendMessage(remetente, {
-      text: '⛔ Status atualizado: offline'
+      text:
+`⛔ ${autorNome} está offline.
+
+👥 Operadores online: ${operadoresOnline.length}${saiu ? '' : '\nℹ️ Você já não estava na fila.'}`
     });
 
     return true;
@@ -999,15 +1183,53 @@ Total: ${lista.length}`
   }
 
 
-  if (comando === '/fila') {
+  if (comando === '/desbugafila') {
+    const reparo = desbugarFila();
     const lista = operadoresOnline.length
-      ? operadoresOnline.map((op, i) => `${i + 1}. Operador ${i + 1}`).join('\n')
+      ? operadoresOnline.map((jid, i) => {
+          const marcador = i === indiceOperador ? '➡️' : `${i + 1}.`;
+          return `${marcador} ${operadorNome(jid)}`;
+        }).join('\n')
+      : 'Nenhum operador online.';
+
+    const proximo = operadoresOnline.length
+      ? operadorNome(operadoresOnline[indiceOperador])
+      : 'Nenhum';
+
+    await sock.sendMessage(remetente, {
+      text:
+`🛠️ DESBUGA FILA
+
+👥 Operadores online: ${operadoresOnline.length}
+${lista}
+
+⏭️ Próximo: ${proximo}
+📦 Bancas ativas: ${bancaAtivaPorCliente.size}
+💳 Pagamentos pendentes: ${pagamentosPendentes.size}
+
+🔧 Reparos executados:
+• Duplicados removidos: ${reparo.duplicadosRemovidos}
+• Bancas órfãs removidas: ${reparo.bancasOrfas}
+• Pagamentos inválidos removidos: ${reparo.pagamentosInvalidos}
+
+✅ Fila verificada e reconstruída.`
+    });
+
+    return true;
+  }
+
+  if (comando === '/fila') {
+    normalizarFilaOperadores();
+    const lista = operadoresOnline.length
+      ? operadoresOnline.map((jid, i) => {
+          const marcador = i === indiceOperador ? '➡️' : `${i + 1}.`;
+          return `${marcador} ${operadorNome(jid)}`;
+        }).join('\n')
       : 'Nenhum operador online.';
 
     await sock.sendMessage(remetente, {
-      text: `📋 Operadores online:\n\n${lista}`
+      text: `📋 FILA DE OPERADORES\n\n${lista}`
     });
-
     return true;
   }
 
@@ -1055,27 +1277,36 @@ Total: ${lista.length}`
   }
 
   if (comando === '/stats') {
+    normalizarFilaOperadores();
     const proximo = operadoresOnline.length
-      ? `Operador ${indiceOperador + 1}`
+      ? operadorNome(operadoresOnline[indiceOperador])
       : 'Nenhum';
+
+    const memoriaMb = Math.round(process.memoryUsage().rss / 1024 / 1024);
 
     await sock.sendMessage(remetente, {
       text:
-`Ã°Å¸â€œÅ  Estatísticas
+`📊 ESTATÍSTICAS
 
-Pix gerados: ${totalPixGerados}
-Pix pagos: ${totalPixPagos}
-Bancas liberadas: ${totalBancasEnviadas}
-Bancas pagas pendentes: ${bancasPagasPendentes.length}
-Operadores online: ${operadoresOnline.length}
-Próximo da fila: ${proximo}`
+🟢 Tempo online: ${formatarDuracao(Date.now() - inicioProcesso)}
+🧠 Memória: ${memoriaMb} MB
+
+💰 Pix gerados: ${totalPixGerados}
+✅ Pix pagos: ${totalPixPagos}
+📦 Bancas liberadas: ${totalBancasEnviadas}
+⏳ Bancas pendentes: ${bancasPagasPendentes.length}
+💳 Pagamentos pendentes: ${pagamentosPendentes.size}
+
+👥 Operadores online: ${operadoresOnline.length}
+⏭️ Próximo da fila: ${proximo}
+🚫 Blacklist: ${blacklistCache.length}`
     });
-
     return true;
   }
 
   if (comando === '/reset') {
     operadoresOnline = [];
+    operadoresInfo.clear();
     indiceOperador = 0;
     totalBancasEnviadas = 0;
     totalPixGerados = 0;
@@ -1092,7 +1323,7 @@ Próximo da fila: ${proximo}`
 `♻️ Sistema resetado
 
 Fila zerada
-Àndice reiniciado
+Índice reiniciado
 Bancas temporárias limpas
 Pagamentos pendentes limpos`
     });
@@ -1101,6 +1332,7 @@ Pagamentos pendentes limpos`
   }
 
   if (comando === '/next') {
+    normalizarFilaOperadores();
     if (!operadoresOnline.length) {
       await sock.sendMessage(remetente, {
         text: '⚠️ Nenhum operador online.'
@@ -1121,7 +1353,7 @@ Pagamentos pendentes limpos`
 
     if (!textoBanca) {
       await sock.sendMessage(remetente, {
-        text: 'Ã¢Å¡Â Ã¯Â¸Â Não consegui ler a banca respondida.'
+        text: '⚠️ Não consegui ler a banca respondida.'
       });
       return true;
     }
@@ -1308,15 +1540,6 @@ ${detalhes}`
    * O operador recebe o valor e fica autorizado
    * a enviar a FOTO 2/2 sem pagamento automático.
    */
-  /*
-   * Liberação manual:
-   *
-   * Responda à banca original com:
-   * /500
-   *
-   * O operador recebe o valor e fica autorizado
-   * a enviar a FOTO 2/2 sem pagamento automático.
-   */
   if (isComandoValor(comando)) {
     const quoted = getQuotedInfo(msg.message);
 
@@ -1417,7 +1640,7 @@ async function processarFotoOperador(msg, remetente) {
 
   if (banca.operadorJid !== remetente) {
     await sock.sendMessage(remetente, {
-      text: 'âš ï¸ Esta banca não está vinculada a você.'
+      text: '⚠️ Esta banca não está vinculada a você.'
     });
     return true;
   }
@@ -1427,7 +1650,7 @@ async function processarFotoOperador(msg, remetente) {
   if (banca.fotosEnviadas >= limiteFotos) {
     await sock.sendMessage(remetente, {
       text: banca.pagamentoConfirmado
-        ? 'â›” FOTO 2/2 já enviada. Limite final atingido.'
+        ? '⛔ FOTO 2/2 já enviada. Limite final atingido.'
         : '⛔ Aguarde o pagamento do cliente para enviar a FOTO 2/2.'
     });
     return true;
@@ -1506,12 +1729,14 @@ async function conectarWhatsApp() {
         if (!msg.message) continue;
 
         const remetente = msg.key.remoteJid;
+        const autorJid = autorDaMensagem(msg);
+        const autorNome = nomeDaMensagem(msg, autorJid);
         const isAdmin = await mensagemDeAdmin(msg);
         const texto = textoDaMensagem(msg.message);
         const messageId = msg.key.id || '';
 
         const comandoProcessado = await entrarNaFila(() =>
-          processarComandos(msg, texto, remetente, isAdmin)
+          processarComandos(msg, texto, remetente, isAdmin, autorJid, autorNome)
         );
 
         if (comandoProcessado) continue;
@@ -1522,7 +1747,7 @@ async function conectarWhatsApp() {
 
         if (fotoProcessada) continue;
 
-        if (isAdmin) continue;
+        if (msg.key.fromMe) continue;
         if (!texto) continue;
 
         await entrarNaFila(() =>

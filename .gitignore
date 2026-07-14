@@ -4,3 +4,9 @@ certs/
 *.zip
 server_backup_*.jsblacklist.json
 backups-locais/
+server-corrigido.js
+server-atual.js
+relatorio-utf8*.txt
+corrigir-*.js
+instalar-*.js
+sanear-*.js

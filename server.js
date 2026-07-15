@@ -919,6 +919,91 @@ function desbugarFila() {
   return { duplicadosRemovidos, bancasOrfas, pagamentosInvalidos };
 }
 
+
+/* PAINEL ADMIN SIMPLES */
+
+function numeroLimpoJid(jid) {
+  return String(jid || '')
+    .split('@')[0]
+    .split(':')[0]
+    .replace(/\D/g, '');
+}
+
+function normalizarNumeroWhatsapp(valor) {
+  let numero = String(valor || '').replace(/\D/g, '');
+  if (!numero) return '';
+
+  if (!numero.startsWith('55') && numero.length >= 10 && numero.length <= 11) {
+    numero = '55' + numero;
+  }
+
+  return numero;
+}
+
+async function enviarTextoDividido(jid, texto, limite = 3500) {
+  const conteudo = String(texto || '');
+
+  if (conteudo.length <= limite) {
+    await sock.sendMessage(jid, { text: conteudo });
+    return;
+  }
+
+  const linhas = conteudo.split('\n');
+  let parte = '';
+
+  for (const linha of linhas) {
+    const candidato = parte ? parte + '\n' + linha : linha;
+
+    if (candidato.length > limite && parte) {
+      await sock.sendMessage(jid, { text: parte });
+      parte = linha;
+    } else {
+      parte = candidato;
+    }
+  }
+
+  if (parte) {
+    await sock.sendMessage(jid, { text: parte });
+  }
+}
+
+function menuComandosCompleto() {
+  return [
+    '📋 COMANDOS DISPONÍVEIS',
+    '',
+    '👨‍💻 OPERADORES',
+    '/opon - entrar na fila',
+    '/opoff - sair da fila',
+    '/fila - listar operadores',
+    '',
+    '💰 PIX E BANCAS',
+    '/next - enviar banca',
+    '/renext - liberar link já enviado',
+    '/pix 500 - gerar cobrança',
+    '/500 - liberar banca manualmente',
+    '',
+    '👥 GRUPOS E IDS',
+    '/ids - listar membros do grupo',
+    '/admins - listar administradores',
+    '/exportargrupo - gerar JSON do grupo',
+    '/consultarid 5567999999999',
+    '/meuid - mostrar seu ID',
+    '',
+    '🚫 BLACKLIST',
+    '/addblacklist',
+    '/removeblacklist Nome',
+    '/listblacklist',
+    '',
+    '🛠️ SISTEMA',
+    '/stats',
+    '/statusbot',
+    '/desbugafila',
+    '/clearfila',
+    '/kickop 1',
+    '/reset'
+  ].join('\n');
+}
+
 /* COMANDOS */
 
 async function mensagemDeAdmin(msg) {
@@ -985,6 +1070,30 @@ async function processarComandos(msg, texto, remetente, isAdmin, autorJid, autor
 📸 OPERADOR
 Responder banca com FOTO
 Limite: 2 fotos por banca`
+    });
+
+    return true;
+  }
+
+  if (comando === '/listarcomandos') {
+    await sock.sendMessage(remetente, {
+      text: menuComandosCompleto()
+    });
+    return true;
+  }
+
+  if (comando === '/meuid') {
+    const jid = autorJid || autorDaMensagem(msg) || remetente;
+    const numero = numeroLimpoJid(jid);
+
+    await sock.sendMessage(remetente, {
+      text: [
+        '👤 SEU ID',
+        '',
+        'Nome: ' + (autorNome || 'Sem nome'),
+        'Número: ' + (numero || 'Não identificado'),
+        'JID: ' + (jid || 'Não identificado')
+      ].join('\n')
     });
 
     return true;
@@ -1066,6 +1175,171 @@ Limite: 2 fotos por banca`
     return true;
   }
   if (!isAdmin) return false;
+
+  if (comando.startsWith('/consultarid')) {
+    const digitado = String(texto || '')
+      .replace(/^\/consultarid\s*/i, '')
+      .trim();
+
+    const numero = normalizarNumeroWhatsapp(digitado);
+
+    if (!numero) {
+      await sock.sendMessage(remetente, {
+        text: '⚠️ Use: /consultarid 5567999999999'
+      });
+      return true;
+    }
+
+    try {
+      const resultado = await sock.onWhatsApp(numero);
+      const encontrado = Array.isArray(resultado)
+        ? resultado.find(item => item && item.exists)
+        : null;
+
+      if (!encontrado || !encontrado.jid) {
+        await sock.sendMessage(remetente, {
+          text: '⛔ Número não encontrado no WhatsApp.\n\nNúmero: ' + numero
+        });
+        return true;
+      }
+
+      await sock.sendMessage(remetente, {
+        text: [
+          '✅ NÚMERO ENCONTRADO',
+          '',
+          'Número: ' + numero,
+          'JID: ' + encontrado.jid
+        ].join('\n')
+      });
+    } catch (err) {
+      console.error('[CONSULTARID]', err);
+      await sock.sendMessage(remetente, {
+        text: '⛔ Não foi possível consultar esse número.'
+      });
+    }
+
+    return true;
+  }
+
+  if (comando === '/ids' || comando === '/admins' || comando === '/exportargrupo') {
+    const grupoJid = msg?.key?.remoteJid || '';
+
+    if (!grupoJid.endsWith('@g.us')) {
+      await sock.sendMessage(remetente, {
+        text: '⚠️ Este comando só funciona dentro de grupos.'
+      });
+      return true;
+    }
+
+    const metadata = await sock.groupMetadata(grupoJid);
+
+    if (comando === '/ids') {
+      const linhas = metadata.participants.map((p, index) => {
+        const jid = p.id || p.phoneNumber || p.lid || '';
+        const numero = numeroLimpoJid(p.phoneNumber || jid);
+        const admin = p.admin === 'admin' || p.admin === 'superadmin';
+
+        return [
+          (index + 1) + '. ' + (admin ? '👑 ADMIN' : '👤 MEMBRO'),
+          'Número: ' + (numero || 'Não disponível'),
+          'JID: ' + (jid || 'Não disponível')
+        ].join('\n');
+      });
+
+      const cabecalho = [
+        '👥 ' + metadata.subject,
+        'Participantes: ' + metadata.participants.length,
+        ''
+      ].join('\n');
+
+      await enviarTextoDividido(
+        remetente,
+        cabecalho + linhas.join('\n\n')
+      );
+
+      return true;
+    }
+
+    if (comando === '/admins') {
+      const admins = metadata.participants.filter(p =>
+        p.admin === 'admin' || p.admin === 'superadmin'
+      );
+
+      const lista = admins.length
+        ? admins.map((p, index) => {
+            const jid = p.id || p.phoneNumber || p.lid || '';
+            return [
+              (index + 1) + '. 👑 ADMIN',
+              'Número: ' + (numeroLimpoJid(p.phoneNumber || jid) || 'Não disponível'),
+              'JID: ' + jid
+            ].join('\n');
+          }).join('\n\n')
+        : 'Nenhum administrador encontrado.';
+
+      await enviarTextoDividido(
+        remetente,
+        '👑 ADMINISTRADORES\n\n' + lista
+      );
+
+      return true;
+    }
+
+    if (comando === '/exportargrupo') {
+      const membros = metadata.participants.map(p => {
+        const jid = p.id || p.phoneNumber || p.lid || '';
+
+        return {
+          numero: numeroLimpoJid(p.phoneNumber || jid),
+          jid,
+          lid: p.lid || null,
+          phoneNumber: p.phoneNumber || null,
+          admin: p.admin === 'admin' || p.admin === 'superadmin'
+        };
+      });
+
+      const json = JSON.stringify({
+        grupo: metadata.subject,
+        jid: grupoJid,
+        total: membros.length,
+        exportadoEm: new Date().toISOString(),
+        membros
+      }, null, 2);
+
+      await sock.sendMessage(remetente, {
+        document: Buffer.from(json, 'utf8'),
+        mimetype: 'application/json',
+        fileName: 'grupo-' + Date.now() + '.json',
+        caption: '✅ Grupo exportado com sucesso.'
+      });
+
+      return true;
+    }
+  }
+
+  if (comando === '/statusbot') {
+    const memoriaMb = Math.round(
+      process.memoryUsage().rss / 1024 / 1024
+    );
+
+    await sock.sendMessage(remetente, {
+      text: [
+        '🛠️ STATUS DO BOT',
+        '',
+        'WhatsApp: ' + status,
+        'Tempo online: ' + formatarDuracao(Date.now() - inicioProcesso),
+        'Memória: ' + memoriaMb + ' MB',
+        'Node: ' + process.version,
+        '',
+        'Operadores online: ' + operadoresOnline.length,
+        'Bancas liberadas: ' + totalBancasEnviadas,
+        'Pagamentos pendentes: ' + pagamentosPendentes.size,
+        'Blacklist: ' + blacklistCache.length
+      ].join('\n')
+    });
+
+    return true;
+  }
+
 
   if (comando === '/addblacklist') {
     const quoted = getQuotedInfo(msg.message);

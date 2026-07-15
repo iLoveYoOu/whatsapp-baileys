@@ -154,6 +154,8 @@ const historicoPixRecebidos = [];
 
 const bancasPorMensagemOriginal = new Map();
 const bancasPorMensagemOperador = new Map();
+const linksEmProcessamento = new Set();
+const historicoNext = new Map();
 
 /*
  * Sessões ativas:
@@ -973,6 +975,7 @@ async function processarComandos(msg, texto, remetente, isAdmin, autorJid, autor
 /clearfila - limpar fila
 /kickop 1 - remover operador
 /desbugafila - verificar e reparar fila
+/renext - liberar link para novo envio
 
 💰 BANCAS
 /next - liberar banca manual
@@ -1336,6 +1339,8 @@ ${lista}
     bancaAtivaPorCliente.clear();
     bancaAtivaPorOperador.clear();
     pagamentosPendentes.clear();
+    linksEmProcessamento.clear();
+    historicoNext.clear();
     bancasPagasPendentes.length = 0;
 
     await sock.sendMessage(remetente, {
@@ -1353,10 +1358,12 @@ Pagamentos pendentes limpos`
 
   if (comando === '/next') {
     normalizarFilaOperadores();
+
     if (!operadoresOnline.length) {
       await sock.sendMessage(remetente, {
         text: '⚠️ Nenhum operador online.'
       });
+
       return true;
     }
 
@@ -1364,42 +1371,155 @@ Pagamentos pendentes limpos`
 
     if (!quoted.stanzaId) {
       await sock.sendMessage(remetente, {
-        text: '⚠️ Responda a mensagem do cliente com /next.'
+        text: '⚠️ Responda à mensagem do cliente com /next.'
       });
+
       return true;
     }
 
-    const textoBanca = textoDaQuotedMessage(quoted.quotedMessage);
+    const linkId = quoted.stanzaId;
+
+    if (
+      linksEmProcessamento.has(linkId) ||
+      bancasPorMensagemOriginal.has(linkId)
+    ) {
+      const registro = historicoNext.get(linkId);
+
+      await sock.sendMessage(remetente, {
+        text:
+`⚠️ Este link já foi enviado ou está sendo processado.
+
+Não foi criada uma banca duplicada.${registro
+  ? `
+
+Último envio:
+Atendente: ${registro.atendenteNome}
+Operador: ${registro.operadorNome}
+Horário: ${registro.horario}`
+  : ''}`
+      });
+
+      return true;
+    }
+
+    const textoBanca = textoDaQuotedMessage(
+      quoted.quotedMessage
+    );
 
     if (!textoBanca) {
       await sock.sendMessage(remetente, {
         text: '⚠️ Não consegui ler a banca respondida.'
       });
+
       return true;
     }
 
-    const banca = {
-      originalMessageId: quoted.stanzaId,
-      clienteJid: msg.key.remoteJid,
-      textoBanca,
-      valor: 'manual',
-      fotosEnviadas: 0,
+    linksEmProcessamento.add(linkId);
 
-      // Mensagem original para responder com as fotos
-      mensagemOriginal: {
-        key: {
-          remoteJid: msg.key.remoteJid,
-          fromMe: false,
-          id: quoted.stanzaId,
-          participant: quoted.participant || undefined
-        },
-        message: quoted.quotedMessage
+    try {
+      const banca = {
+        originalMessageId: linkId,
+        clienteJid: msg.key.remoteJid,
+        textoBanca,
+        valor: 'manual',
+        fotosEnviadas: 0,
+        atendenteJid: autorJid,
+        atendenteNome: autorNome,
+        criadaEm: new Date().toISOString(),
+
+        mensagemOriginal: {
+          key: {
+            remoteJid: msg.key.remoteJid,
+            fromMe: false,
+            id: linkId,
+            participant:
+              quoted.participant || undefined
+          },
+          message: quoted.quotedMessage
+        }
+      };
+
+      const resultado =
+        await liberarBancaParaOperador(banca);
+
+      if (resultado?.ok) {
+        historicoNext.set(linkId, {
+          atendenteJid: autorJid,
+          atendenteNome: autorNome,
+          operadorJid: resultado.operadorJid,
+          operadorNome: resultado.operadorNome,
+          horario: new Date().toLocaleString(
+            'pt-BR',
+            {
+              timeZone: 'America/Sao_Paulo'
+            }
+          )
+        });
       }
-    };
 
-    const resultado = await liberarBancaParaOperador(banca);
+      return true;
+    } catch (err) {
+      console.error(
+        '[FILA] Erro ao distribuir banca:',
+        err
+      );
+
+      bancasPorMensagemOriginal.delete(linkId);
+      historicoNext.delete(linkId);
+
+      await sock.sendMessage(remetente, {
+        text:
+`❌ Não foi possível enviar a banca ao operador.
+
+Tente novamente em alguns segundos.`
+      });
+
+      return true;
+    } finally {
+      linksEmProcessamento.delete(linkId);
+    }
+  }
+
+  if (comando === '/renext') {
+    const quoted = getQuotedInfo(msg.message);
+
+    if (!quoted.stanzaId) {
+      await sock.sendMessage(remetente, {
+        text:
+`⚠️ Responda à mensagem original com:
+
+/renext`
+      });
+
+      return true;
+    }
+
+    const linkId = quoted.stanzaId;
+
+    linksEmProcessamento.delete(linkId);
+
+    const bancaAnterior =
+      bancasPorMensagemOriginal.get(linkId);
+
+    if (bancaAnterior?.operadorJid) {
+      bancaAtivaPorOperador.delete(
+        bancaAnterior.operadorJid
+      );
+    }
+
+    bancasPorMensagemOriginal.delete(linkId);
+    historicoNext.delete(linkId);
+
+    await sock.sendMessage(remetente, {
+      text:
+`✅ Trava removida.
+
+Agora responda novamente ao mesmo link com /next.`
+    });
+
     return true;
   }
+
   if (comando.startsWith('/pix ')) {
     const partes = String(texto || '').trim().split(/\s+/);
     const valor = Number(

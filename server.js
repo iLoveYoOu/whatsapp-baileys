@@ -1900,6 +1900,44 @@ Agora responda novamente ao mesmo link com /next.`
       }
 
       if (pix.qr_code) {
+        /*
+         * Gera o QR do pagamento a partir do código copia e cola.
+         * Falhas na imagem não invalidam a cobrança já criada.
+         */
+        try {
+          const qrPixBuffer = await QRCode.toBuffer(
+            pix.qr_code,
+            {
+              type: 'png',
+              errorCorrectionLevel: 'M',
+              margin: 2,
+              width: 512
+            }
+          );
+
+          await sock.sendMessage(remetente, {
+            image: qrPixBuffer,
+            caption:
+`✅ PIX GERADO
+
+💵 Valor: R$ ${valor.toFixed(2).replace('.', ',')}
+
+Escaneie o QR Code ou use o copia e cola abaixo.`
+          });
+        } catch (qrErr) {
+          console.error(
+            'Erro ao gerar/enviar imagem do QR Pix:',
+            qrErr
+          );
+
+          await sock.sendMessage(remetente, {
+            text:
+`⚠️ O Pix foi criado, mas não consegui enviar a imagem do QR Code.
+
+Use o código copia e cola abaixo.`
+          });
+        }
+
         await sock.sendMessage(remetente, {
           text: '📋 PIX COPIA E COLA:'
         });

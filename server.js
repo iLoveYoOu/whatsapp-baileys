@@ -4,6 +4,9 @@ const fs = require('fs');
 const https = require('https');
 const axios = require('axios');
 const crypto = require('crypto');
+const {
+  msgPixRecebido
+} = require('./src/ui');
 
 const express = require('express');
 const QRCode = require('qrcode');
@@ -2374,28 +2377,11 @@ app.post('/pix/:cliente', async (req, res) => {
     });
     const registroFraude = buscarNaBlacklist(nome);
 
-    const mensagemPix = registroFraude
-      ? `â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
-
-💰 PIX RECEBIDO
-
-👤 ${nome}
-💵 R$ ${valor}
-
-🔴 STATUS: SUSPEITO
-
-Motivo:
-• Nome presente na lista de fraude.
-
-Ação recomendada:
-âŒ NÃ£o liberar saldo
-👤 Encaminhar para análise
-
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”`
-      : `💰 PIX RECEBIDO
-
-👤 ${nome}
-💵 R$ ${valor}`;
+    const mensagemPix = msgPixRecebido(
+      nome,
+      valor,
+      Boolean(registroFraude)
+    );
 
     await sock.sendMessage(destino, {
       text: mensagemPix

@@ -1,4 +1,5 @@
 
+
 require('dotenv').config();
 const fs = require('fs');
 const https = require('https');
@@ -28,25 +29,35 @@ app.use(express.json({ limit: '20mb' }));
 const PORT = process.env.PORT || 3000;
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const MP_TOKEN = process.env.MERCADO_PAGO_ACCESS_TOKEN;
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const SUPABASE_TASKS_TABLE = process.env.SUPABASE_TASKS_TABLE || 'artauto_tasks';
+const ARTAUTO_ENABLED = process.env.ARTAUTO_ENABLED === 'true' && !!SUPABASE_URL && !!SUPABASE_SERVICE_ROLE_KEY;
+const ARTAUTO_POLL_MS = Number(process.env.ARTAUTO_POLL_MS) || 5000;
+
+const ARTAUTO_AUTHORIZED_JIDS = [
+  '554197319202@s.whatsapp.net',
+  '223566721249408@lid'
+];
 
 
 
 const EMOJI = Object.freeze({
-  OK: '✅',
-  ERRO: '⛔',
-  ALERTA: '⚠️',
-  PIX: '💰',
-  PESSOA: '👤',
-  DINHEIRO: '💵',
-  FOTO: '📸',
-  OPERADOR: '👨‍💻',
-  ESTATISTICAS: '📊',
-  FILA: '📋',
-  FERRAMENTA: '🛠️',
-  ESTRELA: '⭐',
-  RECICLAR: '♻️',
-  LIMPAR: '🧹',
-  GRUPO: '👥'
+  OK: 'âœ…',
+  ERRO: 'â›”',
+  ALERTA: 'âš ï¸',
+  PIX: 'ðŸ’°',
+  PESSOA: 'ðŸ‘¤',
+  DINHEIRO: 'ðŸ’µ',
+  FOTO: 'ðŸ“¸',
+  OPERADOR: 'ðŸ‘¨â€ðŸ’»',
+  ESTATISTICAS: 'ðŸ“Š',
+  FILA: 'ðŸ“‹',
+  FERRAMENTA: 'ðŸ› ï¸',
+  ESTRELA: 'â­',
+  RECICLAR: 'â™»ï¸',
+  LIMPAR: 'ðŸ§¹',
+  GRUPO: 'ðŸ‘¥'
 });
 
 let sock = null;
@@ -161,7 +172,7 @@ const linksEmProcessamento = new Set();
 const historicoNext = new Map();
 
 /*
- * Sessões ativas:
+ * SessÃµes ativas:
  * - clienteJid -> banca daquele cliente
  * - operadorJid -> banca daquele operador
  */
@@ -171,23 +182,23 @@ const pagamentosPendentes = new Map();
 const bancasPagasPendentes = [];
 
 const MSG_DEPOSITO_CONFIRMADO =
-`✅ DEU CERTO! DEPÓSITO CONFIRMADO!
+`âœ… DEU CERTO! DEPÃ“SITO CONFIRMADO!
 
-⚠️ ATENÇÃO - MUITO IMPORTANTE!
+âš ï¸ ATENÃ‡ÃƒO - MUITO IMPORTANTE!
 
-Meu número de atendimento pode cair a qualquer momento!
+Meu nÃºmero de atendimento pode cair a qualquer momento!
 
-Se a mensagem NÃO CHEGAR, não fique sem resposta!
+Se a mensagem NÃƒO CHEGAR, nÃ£o fique sem resposta!
 
-📲 CHAMA DIRETO NO NÚMERO RESERVA:
+ðŸ“² CHAMA DIRETO NO NÃšMERO RESERVA:
 48 98425-5049
 
-🕐 Horário de atendimento:
-Todos os dias das 09:00 às 00:30
+ðŸ• HorÃ¡rio de atendimento:
+Todos os dias das 09:00 Ã s 00:30
 
-🙏 Obrigado pela confiança!
+ðŸ™ Obrigado pela confianÃ§a!
 
-Att: Equipe Meia do Lucão`;
+Att: Equipe Meia do LucÃ£o`;
 
 function operadorNome(jid) {
   return operadoresInfo.get(jid)?.nome || 'Operador';
@@ -288,7 +299,7 @@ async function carregarBlacklistRemota() {
   blacklistCache = carregarBlacklistLocal();
 
   if (!BLACKLIST_GIST_ID || !BLACKLIST_GITHUB_TOKEN) {
-    console.warn('Gist não configurado. Blacklist usando apenas arquivo local.');
+    console.warn('Gist nÃ£o configurado. Blacklist usando apenas arquivo local.');
     return blacklistCache;
   }
 
@@ -304,7 +315,7 @@ async function carregarBlacklistRemota() {
     const arquivo = resposta.data?.files?.['blacklist.json'];
 
     if (!arquivo) {
-      throw new Error('blacklist.json não encontrado no Gist.');
+      throw new Error('blacklist.json nÃ£o encontrado no Gist.');
     }
 
     const lista = JSON.parse(arquivo.content || '[]');
@@ -372,7 +383,7 @@ async function salvarBlacklist(lista) {
 }
 
 function extrairNomePix(texto) {
-  const match = String(texto || '').match(/👤\s*(.+)/i);
+  const match = String(texto || '').match(/ðŸ‘¤\s*(.+)/i);
   return match ? String(match[1]).trim() : '';
 }
 
@@ -397,14 +408,14 @@ async function baixarImagem(message) {
 async function gerarPixMercadoPago(valor, descricao) {
   if (!MP_TOKEN) {
     throw new Error(
-      'MERCADO_PAGO_ACCESS_TOKEN não configurado no Render.'
+      'MERCADO_PAGO_ACCESS_TOKEN nÃ£o configurado no Render.'
     );
   }
 
   const numero = Number(valor);
 
   if (!numero || numero <= 0) {
-    throw new Error('Valor inválido.');
+    throw new Error('Valor invÃ¡lido.');
   }
 
   const idempotencyKey =
@@ -454,12 +465,12 @@ async function gerarPixMercadoPago(valor, descricao) {
 
   if (!qrCode) {
     console.error(
-      'Mercado Pago não retornou Pix Copia e Cola:',
+      'Mercado Pago nÃ£o retornou Pix Copia e Cola:',
       data
     );
 
     throw new Error(
-      'Mercado Pago não retornou o Pix Copia e Cola.'
+      'Mercado Pago nÃ£o retornou o Pix Copia e Cola.'
     );
   }
 
@@ -476,7 +487,7 @@ async function gerarPixMercadoPago(valor, descricao) {
 async function consultarPagamentoMercadoPago(paymentId) {
   if (!MP_TOKEN) {
     throw new Error(
-      'MERCADO_PAGO_ACCESS_TOKEN não configurado no Render.'
+      'MERCADO_PAGO_ACCESS_TOKEN nÃ£o configurado no Render.'
     );
   }
 
@@ -529,11 +540,11 @@ setInterval(async () => {
         if (banca.operadorJid) {
           await sock.sendMessage(banca.operadorJid, {
             text:
-`💰 PAGAMENTO CONFIRMADO
+`ðŸ’° PAGAMENTO CONFIRMADO
 
 Banca liberada.
 
-Agora você pode enviar a FOTO 2/2.`
+Agora vocÃª pode enviar a FOTO 2/2.`
           });
         }
       }
@@ -546,7 +557,7 @@ Agora você pode enviar a FOTO 2/2.`
         pagamentosPendentes.delete(paymentId);
 
         await sock.sendMessage(banca.clienteJid, {
-          text: `⚠️ Pagamento não aprovado. Status: ${data.status}`
+          text: `âš ï¸ Pagamento nÃ£o aprovado. Status: ${data.status}`
         });
       }
     } catch (err) {
@@ -639,7 +650,7 @@ async function garantirAba(sheets, aba) {
   );
 
   if (!existe) {
-    throw new Error(`Aba não encontrada: ${aba}`);
+    throw new Error(`Aba nÃ£o encontrada: ${aba}`);
   }
 }
 
@@ -693,7 +704,7 @@ async function proximaLinhaColunaB(sheets, aba) {
     if (!colunaB) return i + 2;
   }
 
-  throw new Error('Não encontrei linha vazia antes do TOTAL.');
+  throw new Error('NÃ£o encontrei linha vazia antes do TOTAL.');
 }
 
 async function salvarNaPlanilha({ texto, messageId }) {
@@ -774,1063 +785,7 @@ async function apagarDaPlanilha(messageId) {
   await garantirAba(sheets, aba);
 
   const meta = await sheets.spreadsheets.get({
-    spreadsheetId: SPREADSHEET_ID
-  });
-
-  const sheetInfo = meta.data.sheets.find(
-    s => s.properties.title === aba
-  );
-
-  if (!sheetInfo) return false;
-
-  const resp = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: `'${aba}'!H2:H`
-  });
-
-  const rows = resp.data.values || [];
-  const linhas = [];
-
-  for (let i = 0; i < rows.length; i++) {
-    const val = String(rows[i][0] || '');
-
-    if (val.includes(messageId)) {
-      linhas.push(i + 2);
-    }
-  }
-
-  linhas.sort((a, b) => b - a);
-
-  for (const linha of linhas) {
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId: SPREADSHEET_ID,
-      requestBody: {
-        requests: [
-          {
-            deleteDimension: {
-              range: {
-                sheetId: sheetInfo.properties.sheetId,
-                dimension: 'ROWS',
-                startIndex: linha - 1,
-                endIndex: linha
-              }
-            }
-          }
-        ]
-      }
-    });
-  }
-
-  return linhas.length > 0;
-}
-
-
-/* FILA E DISTRIBUIÇÃO DE BANCAS */
-async function liberarBancaParaOperador(banca) {
-  normalizarFilaOperadores();
-
-  if (!operadoresOnline.length) {
-    if (!bancasPagasPendentes.includes(banca)) {
-      bancasPagasPendentes.push(banca);
-    }
-
-    await sock.sendMessage(banca.clienteJid, {
-      text: '⚠️ Nenhum operador online no momento. Sua banca ficou aguardando atendimento.'
-    });
-
-    return { ok: false, pendente: true };
-  }
-
-  const operadorJid = proximoOperadorDaFila();
-  const nomeOperador = operadorNome(operadorJid);
-
-  banca.operadorJid = operadorJid;
-  banca.operadorNome = nomeOperador;
-  banca.pagamentoConfirmado = Boolean(banca.pagamentoConfirmado);
-  banca.fotosEnviadas = Number(banca.fotosEnviadas || 0);
-
-  const envio = await sock.sendMessage(operadorJid, {
-    text:
-`📥 NOVA BANCA
-
-${banca.textoBanca}
-
-📸 Envie a FOTO 1/2 respondendo a esta mensagem.
-Após a confirmação do pagamento, você poderá enviar a FOTO 2/2.`
-  });
-
-  const mensagemOperadorId = envio?.key?.id || '';
-
-  if (banca.originalMessageId) {
-    bancasPorMensagemOriginal.set(banca.originalMessageId, banca);
-  }
-  if (mensagemOperadorId) {
-    bancasPorMensagemOperador.set(mensagemOperadorId, banca);
-  }
-
-  bancaAtivaPorCliente.set(banca.clienteJid, banca);
-  bancaAtivaPorOperador.set(operadorJid, banca);
-  totalBancasEnviadas++;
-
-  await sock.sendMessage(banca.clienteJid, {
-    text: `${EMOJI.OK} Banca liberada para ${banca.operadorNome}`
-  });
-
-  return { ok: true, operadorJid, operadorNome: nomeOperador };
-}
-
-async function entregarBancasPendentes() {
-  normalizarFilaOperadores();
-  while (operadoresOnline.length && bancasPagasPendentes.length) {
-    const banca = bancasPagasPendentes.shift();
-    try {
-      await liberarBancaParaOperador(banca);
-    } catch (err) {
-      console.error('[FILA] Erro ao entregar banca pendente:', err);
-      bancasPagasPendentes.unshift(banca);
-      break;
-    }
-  }
-}
-
-function desbugarFila() {
-  const duplicadosRemovidos = normalizarFilaOperadores();
-  let bancasOrfas = 0;
-
-  for (const [jid, banca] of bancaAtivaPorOperador.entries()) {
-    if (!banca || banca.operadorJid !== jid) {
-      bancaAtivaPorOperador.delete(jid);
-      bancasOrfas++;
-    }
-  }
-
-  for (const [jid, banca] of bancaAtivaPorCliente.entries()) {
-    if (!banca || banca.clienteJid !== jid) {
-      bancaAtivaPorCliente.delete(jid);
-      bancasOrfas++;
-    }
-  }
-
-  let pagamentosInvalidos = 0;
-  for (const [id, banca] of pagamentosPendentes.entries()) {
-    if (!id || !banca || !banca.clienteJid) {
-      pagamentosPendentes.delete(id);
-      pagamentosInvalidos++;
-    }
-  }
-
-  return { duplicadosRemovidos, bancasOrfas, pagamentosInvalidos };
-}
-
-
-/* PAINEL ADMIN SIMPLES */
-
-function numeroLimpoJid(jid) {
-  return String(jid || '')
-    .split('@')[0]
-    .split(':')[0]
-    .replace(/\D/g, '');
-}
-
-function normalizarNumeroWhatsapp(valor) {
-  let numero = String(valor || '').replace(/\D/g, '');
-  if (!numero) return '';
-
-  if (!numero.startsWith('55') && numero.length >= 10 && numero.length <= 11) {
-    numero = '55' + numero;
-  }
-
-  return numero;
-}
-
-async function enviarTextoDividido(jid, texto, limite = 3500) {
-  const conteudo = String(texto || '');
-
-  if (conteudo.length <= limite) {
-    await sock.sendMessage(jid, { text: conteudo });
-    return;
-  }
-
-  const linhas = conteudo.split('\n');
-  let parte = '';
-
-  for (const linha of linhas) {
-    const candidato = parte ? parte + '\n' + linha : linha;
-
-    if (candidato.length > limite && parte) {
-      await sock.sendMessage(jid, { text: parte });
-      parte = linha;
-    } else {
-      parte = candidato;
-    }
-  }
-
-  if (parte) {
-    await sock.sendMessage(jid, { text: parte });
-  }
-}
-
-function menuComandosCompleto() {
-  return [
-    '📋 COMANDOS DISPONÍVEIS',
-    '',
-    '👨‍💻 OPERADORES',
-    '/opon - entrar na fila',
-    '/opoff - sair da fila',
-    '/fila - listar operadores',
-    '',
-    '💰 PIX E BANCAS',
-    '/next - enviar banca',
-    '/renext - liberar link já enviado',
-    '/pix 500 - gerar cobrança',
-    '/500 - liberar banca manualmente',
-    '',
-    '👥 GRUPOS E IDS',
-    '/ids - listar membros do grupo',
-    '/admins - listar administradores',
-    '/exportargrupo - gerar JSON do grupo',
-    '/consultarid 5567999999999',
-    '/meuid - mostrar seu ID',
-    '',
-    '🚫 BLACKLIST',
-    '/addblacklist',
-    '/removeblacklist Nome',
-    '/listblacklist',
-    '',
-    '🛠️ SISTEMA',
-    '/stats',
-    '/statusbot',
-    '/desbugafila',
-    '/clearfila',
-    '/kickop 1',
-    '/reset'
-  ].join('\n');
-}
-
-/* COMANDOS */
-
-async function mensagemDeAdmin(msg) {
-  // O próprio número conectado ao Baileys sempre é admin
-  if (msg?.key?.fromMe) return true;
-
-  const grupoJid = msg?.key?.remoteJid || '';
-
-  // Fora de grupo, outros números não recebem permissão administrativa
-  if (!grupoJid.endsWith('@g.us')) return false;
-
-  const autorJid =
-    msg?.key?.participant ||
-    msg?.participant ||
-    '';
-
-  if (!autorJid) return false;
-
-  try {
-    const metadata = await sock.groupMetadata(grupoJid);
-
-    const participante = metadata.participants.find(p =>
-      p.id === autorJid ||
-      p.lid === autorJid ||
-      p.phoneNumber === autorJid
-    );
-
-    return participante?.admin === 'admin' ||
-           participante?.admin === 'superadmin';
-  } catch (err) {
-    console.error('Erro ao verificar admin do grupo:', err.message);
-    return false;
-  }
-}
-
-async function processarComandos(msg, texto, remetente, isAdmin, autorJid, autorNome) {
-  let comando = String(texto || '').trim().toLowerCase();
-
-
-
-  if (comando === '/menu' || comando === '/ajuda') {
-    await sock.sendMessage(remetente, {
-      text:
-`📋 MENU DE COMANDOS
-
-👨‍💻 OPERADORES
-/opon - entrar na fila
-/opoff - sair da fila
-
-👑 ADMIN
-/fila - ver operadores online
-/stats - estatísticas
-/reset - resetar sistema
-/clearfila - limpar fila
-/kickop 1 - remover operador
-/desbugafila - verificar e reparar fila
-/renext - liberar link para novo envio
-
-💰 BANCAS
-/next - liberar banca manual
-/pix 500 - gerar Pix
-/500 - enviar valor para operador
-
-📸 OPERADOR
-Responder banca com FOTO
-Limite: 2 fotos por banca`
-    });
-
-    return true;
-  }
-
-  if (comando === '/listarcomandos') {
-    await sock.sendMessage(remetente, {
-      text: menuComandosCompleto()
-    });
-    return true;
-  }
-
-  if (comando === '/meuid') {
-    const jid = autorJid || autorDaMensagem(msg) || remetente;
-    const numero = numeroLimpoJid(jid);
-
-    await sock.sendMessage(remetente, {
-      text: [
-        '👤 SEU ID',
-        '',
-        'Nome: ' + (autorNome || 'Sem nome'),
-        'Número: ' + (numero || 'Não identificado'),
-        'JID: ' + (jid || 'Não identificado')
-      ].join('\n')
-    });
-
-    return true;
-  }
-
-  if (comando === '/opon') {
-    if (!autorJid) {
-      await sock.sendMessage(remetente, { text: '⚠️ Não consegui identificar seu número.' });
-      return true;
-    }
-
-    const resultado = entrarOperadorNaFila(autorJid, autorNome);
-
-    await sock.sendMessage(remetente, {
-      text:
-`✅ ${autorNome} está online.
-
-📍 Posição na fila: ${resultado.posicao}
-👥 Operadores online: ${resultado.total}`
-    });
-
-    await entregarBancasPendentes();
-    return true;
-  }
-
-  if (comando === '/opoff') {
-    const saiu = sairOperadorDaFila(autorJid);
-
-    await sock.sendMessage(remetente, {
-      text:
-`⛔ ${autorNome} está offline.
-
-👥 Operadores online: ${operadoresOnline.length}${saiu ? '' : '\nℹ️ Você já não estava na fila.'}`
-    });
-
-    return true;
-  }
-
-  
-  if (comando === '/grupos') {
-    const grupos = await sock.groupFetchAllParticipating();
-
-    let lista = '';
-
-    for (const grupo of Object.values(grupos)) {
-      lista += `📌 ${grupo.subject}` + "\n" + `🆔 ${grupo.id}` + "\n\n";
-    }
-
-    await sock.sendMessage(remetente, {
-      text: lista || 'Nenhum grupo encontrado.'
-    });
-
-    return true;
-  }
-  
-  if (comando === '/pixrel') {
-    await sock.sendMessage(remetente, {
-      text: gerarRelatorioPix('📊 RELATÓRIO PIX')
-    });
-
-    return true;
-  }
-
-  if (comando === '/pixfechar') {
-    const relatorio = gerarRelatorioPix('📊 FECHAMENTO PIX');
-
-    await sock.sendMessage(remetente, {
-      text: relatorio + "\n\n✅ Dia encerrado"
-    });
-
-    const dataHoje = dataPixBR();
-
-    for (let i = historicoPixRecebidos.length - 1; i >= 0; i--) {
-      if (historicoPixRecebidos[i].data === dataHoje) {
-        historicoPixRecebidos.splice(i, 1);
-      }
-    }
-
-    return true;
-  }
-  if (!isAdmin) return false;
-
-  if (comando.startsWith('/consultarid')) {
-    const digitado = String(texto || '')
-      .replace(/^\/consultarid\s*/i, '')
-      .trim();
-
-    const numero = normalizarNumeroWhatsapp(digitado);
-
-    if (!numero) {
-      await sock.sendMessage(remetente, {
-        text: '⚠️ Use: /consultarid 5567999999999'
-      });
-      return true;
-    }
-
-    try {
-      const resultado = await sock.onWhatsApp(numero);
-      const encontrado = Array.isArray(resultado)
-        ? resultado.find(item => item && item.exists)
-        : null;
-
-      if (!encontrado || !encontrado.jid) {
-        await sock.sendMessage(remetente, {
-          text: '⛔ Número não encontrado no WhatsApp.\n\nNúmero: ' + numero
-        });
-        return true;
-      }
-
-      await sock.sendMessage(remetente, {
-        text: [
-          '✅ NÚMERO ENCONTRADO',
-          '',
-          'Número: ' + numero,
-          'JID: ' + encontrado.jid
-        ].join('\n')
-      });
-    } catch (err) {
-      console.error('[CONSULTARID]', err);
-      await sock.sendMessage(remetente, {
-        text: '⛔ Não foi possível consultar esse número.'
-      });
-    }
-
-    return true;
-  }
-
-  if (comando === '/ids' || comando === '/admins' || comando === '/exportargrupo') {
-    const grupoJid = msg?.key?.remoteJid || '';
-
-    if (!grupoJid.endsWith('@g.us')) {
-      await sock.sendMessage(remetente, {
-        text: '⚠️ Este comando só funciona dentro de grupos.'
-      });
-      return true;
-    }
-
-    const metadata = await sock.groupMetadata(grupoJid);
-
-    if (comando === '/ids') {
-      const linhas = metadata.participants.map((p, index) => {
-        const jid = p.id || p.phoneNumber || p.lid || '';
-        const numero = numeroLimpoJid(p.phoneNumber || jid);
-        const admin = p.admin === 'admin' || p.admin === 'superadmin';
-
-        return [
-          (index + 1) + '. ' + (admin ? '👑 ADMIN' : '👤 MEMBRO'),
-          'Número: ' + (numero || 'Não disponível'),
-          'JID: ' + (jid || 'Não disponível')
-        ].join('\n');
-      });
-
-      const cabecalho = [
-        '👥 ' + metadata.subject,
-        'Participantes: ' + metadata.participants.length,
-        ''
-      ].join('\n');
-
-      await enviarTextoDividido(
-        remetente,
-        cabecalho + linhas.join('\n\n')
-      );
-
-      return true;
-    }
-
-    if (comando === '/admins') {
-      const admins = metadata.participants.filter(p =>
-        p.admin === 'admin' || p.admin === 'superadmin'
-      );
-
-      const lista = admins.length
-        ? admins.map((p, index) => {
-            const jid = p.id || p.phoneNumber || p.lid || '';
-            return [
-              (index + 1) + '. 👑 ADMIN',
-              'Número: ' + (numeroLimpoJid(p.phoneNumber || jid) || 'Não disponível'),
-              'JID: ' + jid
-            ].join('\n');
-          }).join('\n\n')
-        : 'Nenhum administrador encontrado.';
-
-      await enviarTextoDividido(
-        remetente,
-        '👑 ADMINISTRADORES\n\n' + lista
-      );
-
-      return true;
-    }
-
-    if (comando === '/exportargrupo') {
-      const membros = metadata.participants.map(p => {
-        const jid = p.id || p.phoneNumber || p.lid || '';
-
-        return {
-          numero: numeroLimpoJid(p.phoneNumber || jid),
-          jid,
-          lid: p.lid || null,
-          phoneNumber: p.phoneNumber || null,
-          admin: p.admin === 'admin' || p.admin === 'superadmin'
-        };
-      });
-
-      const json = JSON.stringify({
-        grupo: metadata.subject,
-        jid: grupoJid,
-        total: membros.length,
-        exportadoEm: new Date().toISOString(),
-        membros
-      }, null, 2);
-
-      await sock.sendMessage(remetente, {
-        document: Buffer.from(json, 'utf8'),
-        mimetype: 'application/json',
-        fileName: 'grupo-' + Date.now() + '.json',
-        caption: '✅ Grupo exportado com sucesso.'
-      });
-
-      return true;
-    }
-  }
-
-  if (comando === '/statusbot') {
-    const memoriaMb = Math.round(
-      process.memoryUsage().rss / 1024 / 1024
-    );
-
-    await sock.sendMessage(remetente, {
-      text: [
-        '🛠️ STATUS DO BOT',
-        '',
-        'WhatsApp: ' + status,
-        'Tempo online: ' + formatarDuracao(Date.now() - inicioProcesso),
-        'Memória: ' + memoriaMb + ' MB',
-        'Node: ' + process.version,
-        '',
-        'Operadores online: ' + operadoresOnline.length,
-        'Bancas liberadas: ' + totalBancasEnviadas,
-        'Pagamentos pendentes: ' + pagamentosPendentes.size,
-        'Blacklist: ' + blacklistCache.length
-      ].join('\n')
-    });
-
-    return true;
-  }
-
-
-  if (comando === '/addblacklist') {
-    const quoted = getQuotedInfo(msg.message);
-    const textoRespondido = textoDaQuotedMessage(quoted.quotedMessage);
-    const nome = extrairNomePix(textoRespondido);
-
-    if (!quoted.stanzaId || !nome) {
-      await sock.sendMessage(remetente, {
-        text:
-`⚠️ Responda a uma mensagem de PIX RECEBIDO com:
-
-/addblacklist`
-      });
-
-      return true;
-    }
-
-    const lista = carregarBlacklist();
-    const jaExiste = lista.some(
-      item => normalizarNomeBlacklist(item.nome) === normalizarNomeBlacklist(nome)
-    );
-
-    if (jaExiste) {
-      await sock.sendMessage(remetente, {
-        text: `⚠️ ${nome} já está na blacklist.`
-      });
-
-      return true;
-    }
-
-    lista.push({
-      nome,
-      motivo: 'Fraude',
-      data: new Date().toISOString(),
-      adicionadoPor: remetente
-    });
-
-    await salvarBlacklist(lista);
-
-    await sock.sendMessage(remetente, {
-      text:
-`✅ ADICIONADO Ã€ BLACKLIST
-
-👤 ${nome}
-
-Novos Pix com esse nome receberão alerta automático.`
-    });
-
-    return true;
-  }
-
-  if (comando === '/listblacklist') {
-    const lista = carregarBlacklist();
-
-    if (!lista.length) {
-      await sock.sendMessage(remetente, {
-        text: '✅ A blacklist está vazia.'
-      });
-
-      return true;
-    }
-
-    const linhas = lista.map((item, index) => {
-      const data = item.data
-        ? new Date(item.data).toLocaleDateString('pt-BR', {
-            timeZone: 'America/Sao_Paulo'
-          })
-        : 'Sem data';
-
-      return `${index + 1}. ${item.nome}\n   Data: ${data}`;
-    });
-
-    await sock.sendMessage(remetente, {
-      text:
-`🚫 BLACKLIST PIX
-
-${linhas.join('\n\n')}
-
-Total: ${lista.length}`
-    });
-
-    return true;
-  }
-
-  if (comando.startsWith('/removeblacklist')) {
-    const quoted = getQuotedInfo(msg.message);
-    const textoRespondido = textoDaQuotedMessage(quoted.quotedMessage);
-    const nomeRespondido = extrairNomePix(textoRespondido);
-
-    const nomeDigitado = String(texto || '')
-      .trim()
-      .replace(/^\/removeblacklist\s*/i, '')
-      .trim();
-
-    const nome = nomeRespondido || nomeDigitado;
-
-    if (!nome) {
-      await sock.sendMessage(remetente, {
-        text:
-`⚠️ Use uma destas formas:
-
-1. Responda ao PIX com:
-/removeblacklist
-
-2. Digite:
-/removeblacklist Nome Completo`
-      });
-
-      return true;
-    }
-
-    const lista = carregarBlacklist();
-    const nomeNormalizado = normalizarNomeBlacklist(nome);
-
-    const novaLista = lista.filter(
-      item => normalizarNomeBlacklist(item.nome) !== nomeNormalizado
-    );
-
-    if (novaLista.length === lista.length) {
-      await sock.sendMessage(remetente, {
-        text: `⚠️ ${nome} não foi encontrado na blacklist.`
-      });
-
-      return true;
-    }
-
-    await salvarBlacklist(novaLista);
-
-    await sock.sendMessage(remetente, {
-      text:
-`✅ REMOVIDO DA BLACKLIST
-
-👤 ${nome}`
-    });
-
-    return true;
-  }
-
-
-  if (comando === '/desbugafila') {
-    const reparo = desbugarFila();
-    const lista = operadoresOnline.length
-      ? operadoresOnline.map((jid, i) => {
-          const marcador = i === indiceOperador ? '➡️' : `${i + 1}.`;
-          return `${marcador} ${operadorNome(jid)}`;
-        }).join('\n')
-      : 'Nenhum operador online.';
-
-    const proximo = operadoresOnline.length
-      ? operadorNome(operadoresOnline[indiceOperador])
-      : 'Nenhum';
-
-    await sock.sendMessage(remetente, {
-      text:
-`🛠️ DESBUGA FILA
-
-👥 Operadores online: ${operadoresOnline.length}
-${lista}
-
-⭐ Próximo: ${proximo}
-📦 Bancas ativas: ${bancaAtivaPorCliente.size}
-💳 Pagamentos pendentes: ${pagamentosPendentes.size}
-
-🔧 Reparos executados:
-• Duplicados removidos: ${reparo.duplicadosRemovidos}
-• Bancas órfãs removidas: ${reparo.bancasOrfas}
-• Pagamentos inválidos removidos: ${reparo.pagamentosInvalidos}
-
-✅ Fila verificada e reconstruída.`
-    });
-
-    return true;
-  }
-
-  if (comando === '/fila') {
-    normalizarFilaOperadores();
-    const lista = operadoresOnline.length
-      ? operadoresOnline.map((jid, i) => {
-          const marcador = i === indiceOperador ? '➡️' : `${i + 1}.`;
-          return `${marcador} ${operadorNome(jid)}`;
-        }).join('\n')
-      : 'Nenhum operador online.';
-
-    await sock.sendMessage(remetente, {
-      text: `📋 FILA DE OPERADORES\n\n${lista}`
-    });
-    return true;
-  }
-
-  if (comando === '/clearfila') {
-    operadoresOnline = [];
-    indiceOperador = 0;
-
-    await sock.sendMessage(remetente, {
-      text: '🧹 Fila limpa com sucesso.'
-    });
-
-    return true;
-  }
-
-  if (comando.startsWith('/kickop')) {
-    const arg = comando.replace('/kickop', '').trim();
-
-    if (!arg) {
-      await sock.sendMessage(remetente, {
-        text: 'Use: /kickop 1'
-      });
-      return true;
-    }
-
-    const numero = Number(arg);
-
-    if (!numero || numero < 1 || numero > operadoresOnline.length) {
-      await sock.sendMessage(remetente, {
-        text: 'Operador não encontrado.'
-      });
-      return true;
-    }
-
-    operadoresOnline.splice(numero - 1, 1);
-
-    if (indiceOperador >= operadoresOnline.length) {
-      indiceOperador = 0;
-    }
-
-    await sock.sendMessage(remetente, {
-      text: `⛔ Operador ${numero} removido da fila.`
-    });
-
-    return true;
-  }
-
-  if (comando === '/stats') {
-    const proximo = operadoresOnline.length
-      ? `Operador ${indiceOperador + 1}`
-      : 'Nenhum';
-
-    const tempoOnline = formatarDuracao(
-      Date.now() - inicioProcesso
-    );
-
-    await sock.sendMessage(remetente, {
-      text:
-`📊 ESTATÍSTICAS
-
-🟢 Tempo online: ${tempoOnline}
-
-💰 Pix gerados: ${totalPixGerados}
-✅ Pix pagos: ${totalPixPagos}
-📦 Bancas liberadas: ${totalBancasEnviadas}
-💳 Bancas pendentes: ${bancasPagasPendentes.length}
-💳 Pagamentos pendentes: ${pagamentosPendentes.size}
-
-👥 Operadores online: ${operadoresOnline.length}
-⭐ Próximo da fila: ${proximo}
-🚫 Blacklist: ${blacklistCache.length}`
-    });
-
-    return true;
-  }
-
-  if (comando === '/reset') {
-    operadoresOnline = [];
-    operadoresInfo.clear();
-    indiceOperador = 0;
-    totalBancasEnviadas = 0;
-    totalPixGerados = 0;
-    totalPixPagos = 0;
-    bancasPorMensagemOriginal.clear();
-    bancasPorMensagemOperador.clear();
-    bancaAtivaPorCliente.clear();
-    bancaAtivaPorOperador.clear();
-    pagamentosPendentes.clear();
-    linksEmProcessamento.clear();
-    historicoNext.clear();
-    bancasPagasPendentes.length = 0;
-
-    await sock.sendMessage(remetente, {
-      text:
-`♻️ Sistema resetado
-
-Fila zerada
-Ãndice reiniciado
-Bancas temporárias limpas
-Pagamentos pendentes limpos`
-    });
-
-    return true;
-  }
-
-  if (comando === '/next') {
-    normalizarFilaOperadores();
-
-    if (!operadoresOnline.length) {
-      await sock.sendMessage(remetente, {
-        text: '⚠️ Nenhum operador online.'
-      });
-
-      return true;
-    }
-
-    const quoted = getQuotedInfo(msg.message);
-
-    if (!quoted.stanzaId) {
-      await sock.sendMessage(remetente, {
-        text: '⚠️ Responda à mensagem do cliente com /next.'
-      });
-
-      return true;
-    }
-
-    const linkId = quoted.stanzaId;
-
-    if (
-      linksEmProcessamento.has(linkId) ||
-      bancasPorMensagemOriginal.has(linkId)
-    ) {
-      const registro = historicoNext.get(linkId);
-
-      await sock.sendMessage(remetente, {
-        text:
-`⚠️ Este link já foi enviado ou está sendo processado.
-
-Não foi criada uma banca duplicada.${registro
-  ? `
-
-Último envio:
-Atendente: ${registro.atendenteNome}
-Operador: ${registro.operadorNome}
-Horário: ${registro.horario}`
-  : ''}`
-      });
-
-      return true;
-    }
-
-    const textoBanca = textoDaQuotedMessage(
-      quoted.quotedMessage
-    );
-
-    if (!textoBanca) {
-      await sock.sendMessage(remetente, {
-        text: '⚠️ Não consegui ler a banca respondida.'
-      });
-
-      return true;
-    }
-
-    linksEmProcessamento.add(linkId);
-
-    try {
-      const banca = {
-        originalMessageId: linkId,
-        clienteJid: msg.key.remoteJid,
-        textoBanca,
-        valor: 'manual',
-        fotosEnviadas: 0,
-        atendenteJid: autorJid,
-        atendenteNome: autorNome,
-        criadaEm: new Date().toISOString(),
-
-        mensagemOriginal: {
-          key: {
-            remoteJid: msg.key.remoteJid,
-            fromMe: false,
-            id: linkId,
-            participant:
-              quoted.participant || undefined
-          },
-          message: quoted.quotedMessage
-        }
-      };
-
-      const resultado =
-        await liberarBancaParaOperador(banca);
-
-      if (resultado?.ok) {
-        historicoNext.set(linkId, {
-          atendenteJid: autorJid,
-          atendenteNome: autorNome,
-          operadorJid: resultado.operadorJid,
-          operadorNome: resultado.operadorNome,
-          horario: new Date().toLocaleString(
-            'pt-BR',
-            {
-              timeZone: 'America/Sao_Paulo'
-            }
-          )
-        });
-      }
-
-      return true;
-    } catch (err) {
-      console.error(
-        '[FILA] Erro ao distribuir banca:',
-        err
-      );
-
-      bancasPorMensagemOriginal.delete(linkId);
-      historicoNext.delete(linkId);
-
-      await sock.sendMessage(remetente, {
-        text:
-`❌ Não foi possível enviar a banca ao operador.
-
-Tente novamente em alguns segundos.`
-      });
-
-      return true;
-    } finally {
-      linksEmProcessamento.delete(linkId);
-    }
-  }
-
-  if (comando === '/renext') {
-    const quoted = getQuotedInfo(msg.message);
-
-    if (!quoted.stanzaId) {
-      await sock.sendMessage(remetente, {
-        text:
-`⚠️ Responda à mensagem original com:
-
-/renext`
-      });
-
-      return true;
-    }
-
-    const linkId = quoted.stanzaId;
-
-    linksEmProcessamento.delete(linkId);
-
-    const bancaAnterior =
-      bancasPorMensagemOriginal.get(linkId);
-
-    if (bancaAnterior?.operadorJid) {
-      bancaAtivaPorOperador.delete(
-        bancaAnterior.operadorJid
-      );
-    }
-
-    bancasPorMensagemOriginal.delete(linkId);
-    historicoNext.delete(linkId);
-
-    await sock.sendMessage(remetente, {
-      text:
-`✅ Trava removida.
-
-Agora responda novamente ao mesmo link com /next.`
-    });
-
-    return true;
-  }
-
-  if (comando.startsWith('/pix ')) {
-    const partes = String(texto || '').trim().split(/\s+/);
-    const valor = Number(
-      String(partes[1] || '').replace(',', '.')
-    );
-
-    if (!valor || valor <= 0) {
-      await sock.sendMessage(remetente, {
-        text:
-`⚠️ Uso correto:
-
-/pix 500`
-      });
-
-      return true;
-    }
-
-    try {
-      const quoted = getQuotedInfo(msg.message);
-
-      /*
-       * Ordem para localizar a banca:
-       *
-       * 1. Mensagem original respondida;
-       * 2. Mensagem enviada ao operador respondida;
-       * 3. Sessão ativa da conversa atual como cliente;
-       * 4. Sessão ativa da conversa atual como operador;
-       * 5. Cobrança avulsa.
-       */
-      let banca = null;
-
-      if (quoted.stanzaId) {
-        banca =
-          bancasPorMensagemOriginal.get(quoted.stanzaId) ||
+    spreadsheet…6424 tokens truncated…orMensagemOriginal.get(quoted.stanzaId) ||
           bancasPorMensagemOperador.get(quoted.stanzaId) ||
           null;
       }
@@ -1843,14 +798,14 @@ Agora responda novamente ao mesmo link com /next.`
       }
 
       /*
-       * O /pix também funciona sem /next.
-       * Nesse caso, cria uma cobrança avulsa para a conversa atual.
+       * O /pix tambÃ©m funciona sem /next.
+       * Nesse caso, cria uma cobranÃ§a avulsa para a conversa atual.
        */
       if (!banca) {
         banca = {
           originalMessageId: '',
           clienteJid: remetente,
-          textoBanca: 'Cobrança avulsa',
+          textoBanca: 'CobranÃ§a avulsa',
           valor,
           fotosEnviadas: 0,
           pagamentoConfirmado: false,
@@ -1864,7 +819,7 @@ Agora responda novamente ao mesmo link com /next.`
 
       const pix = await gerarPixMercadoPago(
         valor,
-        `Banca Meia do Lucão - R$ ${valor.toFixed(2)}`
+        `Banca Meia do LucÃ£o - R$ ${valor.toFixed(2)}`
       );
 
       totalPixGerados++;
@@ -1874,7 +829,7 @@ Agora responda novamente ao mesmo link com /next.`
       banca.pagamentoConfirmado = false;
 
       /*
-       * A confirmação automática já utiliza este Map.
+       * A confirmaÃ§Ã£o automÃ¡tica jÃ¡ utiliza este Map.
        */
       pagamentosPendentes.set(
         String(pix.id),
@@ -1894,18 +849,18 @@ Agora responda novamente ao mesmo link com /next.`
 
         await sock.sendMessage(banca.operadorJid, {
           text:
-`💰 VALOR DEFINIDO
+`ðŸ’° VALOR DEFINIDO
 
-💵 Valor: R$ ${valor.toFixed(2).replace('.', ',')}
+ðŸ’µ Valor: R$ ${valor.toFixed(2).replace('.', ',')}
 
-⏳ Aguardando pagamento...`
+â³ Aguardando pagamento...`
         });
       }
 
       if (pix.qr_code) {
         /*
-         * Gera o QR do pagamento a partir do código copia e cola.
-         * Falhas na imagem não invalidam a cobrança já criada.
+         * Gera o QR do pagamento a partir do cÃ³digo copia e cola.
+         * Falhas na imagem nÃ£o invalidam a cobranÃ§a jÃ¡ criada.
          */
         try {
           const qrPixBuffer = await QRCode.toBuffer(
@@ -1921,9 +876,9 @@ Agora responda novamente ao mesmo link com /next.`
           await sock.sendMessage(remetente, {
             image: qrPixBuffer,
             caption:
-`✅ PIX GERADO
+`âœ… PIX GERADO
 
-💵 Valor: R$ ${valor.toFixed(2).replace('.', ',')}
+ðŸ’µ Valor: R$ ${valor.toFixed(2).replace('.', ',')}
 
 Escaneie o QR Code ou use o copia e cola abaixo.`
           });
@@ -1935,14 +890,14 @@ Escaneie o QR Code ou use o copia e cola abaixo.`
 
           await sock.sendMessage(remetente, {
             text:
-`⚠️ O Pix foi criado, mas não consegui enviar a imagem do QR Code.
+`âš ï¸ O Pix foi criado, mas nÃ£o consegui enviar a imagem do QR Code.
 
-Use o código copia e cola abaixo.`
+Use o cÃ³digo copia e cola abaixo.`
           });
         }
 
         await sock.sendMessage(remetente, {
-          text: '📋 PIX COPIA E COLA:'
+          text: 'ðŸ“‹ PIX COPIA E COLA:'
         });
 
         await sock.sendMessage(remetente, {
@@ -1952,11 +907,11 @@ Use o código copia e cola abaixo.`
 
       await sock.sendMessage(remetente, {
         text:
-`✅ Pix criado com sucesso.
+`âœ… Pix criado com sucesso.
 
 ID: ${pix.id}
 
-A confirmação será automática após o pagamento.`
+A confirmaÃ§Ã£o serÃ¡ automÃ¡tica apÃ³s o pagamento.`
       });
     } catch (err) {
       const detalhes =
@@ -1972,7 +927,7 @@ A confirmação será automática após o pagamento.`
 
       await sock.sendMessage(remetente, {
         text:
-`âŒ NÃ£o foi possÃ­vel gerar o Pix.
+`Ã¢ÂÅ’ NÃƒÂ£o foi possÃƒÂ­vel gerar o Pix.
 
 ${detalhes}`
       });
@@ -1981,13 +936,13 @@ ${detalhes}`
     return true;
   }
   /*
-   * Liberação manual:
+   * LiberaÃ§Ã£o manual:
    *
-   * Responda à banca original com:
+   * Responda Ã  banca original com:
    * /500
    *
    * O operador recebe o valor e fica autorizado
-   * a enviar a FOTO 2/2 sem pagamento automático.
+   * a enviar a FOTO 2/2 sem pagamento automÃ¡tico.
    */
   if (isComandoValor(comando)) {
     const quoted = getQuotedInfo(msg.message);
@@ -1995,7 +950,7 @@ ${detalhes}`
     if (!quoted.stanzaId) {
       await sock.sendMessage(remetente, {
         text:
-`⚠️ Responda à mensagem original da banca com o valor.
+`âš ï¸ Responda Ã  mensagem original da banca com o valor.
 
 Exemplo:
 /500`
@@ -2011,7 +966,7 @@ Exemplo:
     if (!banca) {
       await sock.sendMessage(remetente, {
         text:
-`⚠️ Não encontrei uma banca vinculada a essa mensagem.
+`âš ï¸ NÃ£o encontrei uma banca vinculada a essa mensagem.
 
 Primeiro use /next respondendo ao link do cliente.`
       });
@@ -2024,7 +979,7 @@ Primeiro use /next respondendo ao link do cliente.`
 
     if (!valorNumero || valorNumero <= 0) {
       await sock.sendMessage(remetente, {
-        text: '⚠️ Valor inválido.'
+        text: 'âš ï¸ Valor invÃ¡lido.'
       });
 
       return true;
@@ -2049,21 +1004,21 @@ Primeiro use /next respondendo ao link do cliente.`
         text:
 `${EMOJI.OK} BANCA LIBERADA MANUALMENTE
 
-💰 Valor para depositar:
+ðŸ’° Valor para depositar:
 R$ ${valorNumero.toFixed(2).replace('.', ',')}
 
-📸 Você já pode enviar a FOTO 2/2.`
+ðŸ“¸ VocÃª jÃ¡ pode enviar a FOTO 2/2.`
       });
     }
 
     await sock.sendMessage(remetente, {
       text:
-`✅ Liberação manual concluída.
+`âœ… LiberaÃ§Ã£o manual concluÃ­da.
 
 Valor enviado ao operador:
 R$ ${valorNumero.toFixed(2).replace('.', ',')}
 
-${banca.operadorNome || 'Operador'} já pode enviar a FOTO 2/2.`
+${banca.operadorNome || 'Operador'} jÃ¡ pode enviar a FOTO 2/2.`
     });
 
     return true;
@@ -2089,7 +1044,7 @@ async function processarFotoOperador(msg, remetente) {
 
   if (banca.operadorJid !== remetente) {
     await sock.sendMessage(remetente, {
-      text: '⚠️ Esta banca não está vinculada a você.'
+      text: 'âš ï¸ Esta banca nÃ£o estÃ¡ vinculada a vocÃª.'
     });
     return true;
   }
@@ -2099,8 +1054,8 @@ async function processarFotoOperador(msg, remetente) {
   if (banca.fotosEnviadas >= limiteFotos) {
     await sock.sendMessage(remetente, {
       text: banca.pagamentoConfirmado
-        ? '⛔ FOTO 2/2 já enviada. Limite final atingido.'
-        : '⛔ Aguarde o pagamento do cliente para enviar a FOTO 2/2.'
+        ? 'â›” FOTO 2/2 jÃ¡ enviada. Limite final atingido.'
+        : 'â›” Aguarde o pagamento do cliente para enviar a FOTO 2/2.'
     });
     return true;
   }
@@ -2126,7 +1081,7 @@ async function processarFotoOperador(msg, remetente) {
   banca.fotosEnviadas++;
 
   await sock.sendMessage(remetente, {
-    text: `✅ Banca enviada ao cliente. (${banca.fotosEnviadas}/2)`
+    text: `âœ… Banca enviada ao cliente. (${banca.fotosEnviadas}/2)`
   });
 
   return true;
@@ -2160,7 +1115,7 @@ async function conectarWhatsApp() {
     if (qr) {
       qrAtual = qr;
       status = 'aguardando_qr';
-      console.log('QR disponível em /qr');
+      console.log('QR disponÃ­vel em /qr');
     }
 
     if (connection === 'open') {
@@ -2176,7 +1131,7 @@ async function conectarWhatsApp() {
 
       status = shouldReconnect ? 'reconectando' : 'deslogado';
 
-      console.log('Conexão fechada. Reconectar:', shouldReconnect);
+      console.log('ConexÃ£o fechada. Reconectar:', shouldReconnect);
 
       if (shouldReconnect) {
         setTimeout(() => conectarWhatsApp(), 5000);
@@ -2210,6 +1165,10 @@ async function conectarWhatsApp() {
 
         if (msg.key.fromMe) continue;
         if (!texto) continue;
+
+        if (ARTAUTO_ENABLED) {
+          entrarNaFila(() => artautoProcessarMensagem(msg, texto, remetente, messageId));
+        }
 
         await entrarNaFila(() =>
           salvarNaPlanilha({
@@ -2296,9 +1255,9 @@ function gerarRelatorioPix(titulo) {
   if (!itens.length) {
     return `${titulo}
 
-📅 ${dataHoje}
+ðŸ“… ${dataHoje}
 
-Nenhum PIX registrado até agora.`;
+Nenhum PIX registrado atÃ© agora.`;
   }
 
   const porCliente = {};
@@ -2317,7 +1276,7 @@ Nenhum PIX registrado até agora.`;
 
   let texto = `${titulo}
 
-📅 ${dataHoje}
+ðŸ“… ${dataHoje}
 
 `;
 
@@ -2325,15 +1284,15 @@ Nenhum PIX registrado até agora.`;
     totalGeral += dados.total;
     qtdGeral += dados.qtd;
 
-    texto += `👤 ${cliente}
+    texto += `ðŸ‘¤ ${cliente}
 Qtd: ${dados.qtd}
 Total: ${moedaBR(dados.total)}
 
 `;
   }
 
-  texto += `💰 TOTAL GERAL: ${moedaBR(totalGeral)}
-🔢 QTD GERAL: ${qtdGeral}`;
+  texto += `ðŸ’° TOTAL GERAL: ${moedaBR(totalGeral)}
+ðŸ”¢ QTD GERAL: ${qtdGeral}`;
 
   return texto;
 }
@@ -2345,14 +1304,14 @@ app.post('/pix/:cliente', async (req, res) => {
     if (!destino) {
       return res.status(404).json({
         sucesso: false,
-        erro: 'Cliente não cadastrado'
+        erro: 'Cliente nÃ£o cadastrado'
       });
     }
 
     if (!sock) {
       return res.status(503).json({
         sucesso: false,
-        erro: 'WhatsApp não conectado'
+        erro: 'WhatsApp nÃ£o conectado'
       });
     }
 
@@ -2408,7 +1367,7 @@ app.get('/ping', (req, res) => {
 
 app.get('/', (req, res) => {
   res.send(`
-    <h2>WhatsApp â†’ Google Sheets</h2>
+    <h2>WhatsApp Ã¢â€ â€™ Google Sheets</h2>
     <p>Status: <b>${status}</b></p>
     <p><a href="/qr">Abrir QR Code</a></p>
   `);
@@ -2431,7 +1390,7 @@ app.get('/qr', async (req, res) => {
   if (!qrAtual) {
     return res.send(`
       <h3>Status: ${status}</h3>
-      <p>Nenhum QR disponível</p>
+      <p>Nenhum QR disponÃ­vel</p>
     `);
   }
 
@@ -2447,6 +1406,185 @@ app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
   conectarWhatsApp();
 });
+
+/* ARTAUTO - IntegraÃ§Ã£o Supabase */
+const artautoLock = { polling: false };
+
+function artautoExtrairATD(texto) {
+  const flowMatch = String(texto || '').match(/ATD:\s*flow-([\w-]+)/i);
+  if (flowMatch) return { atd_type: 'flow', atd_id: flowMatch[1], atd_raw: flowMatch[0] };
+
+  const cicloMatch = String(texto || '').match(/ATD:\s*ciclo-([\w-]+)/i);
+  if (cicloMatch) return { atd_type: 'ciclo', atd_id: cicloMatch[1], atd_raw: cicloMatch[0] };
+
+  return null;
+}
+
+function artautoExtrairURL(texto) {
+  const match = String(texto || '').match(/https?:\/\/[^\s]+/i);
+  return match ? match[0] : '';
+}
+
+async function artautoCriarTarefa(messageId, urlLink, atdData, senderJid, replyToJid) {
+  const apiUrl = `${SUPABASE_URL}/rest/v1/${SUPABASE_TASKS_TABLE}`;
+  const headers = {
+    'Content-Type': 'application/json',
+    'apikey': SUPABASE_SERVICE_ROLE_KEY,
+    'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`
+  };
+
+  const checkUrl = `${apiUrl}?message_id=eq.${encodeURIComponent(messageId)}&select=message_id`;
+  const checkRes = await fetch(checkUrl, { headers: { ...headers, Accept: 'application/json' } });
+  if (checkRes.ok) {
+    const existing = await checkRes.json();
+    if (existing && existing.length > 0) return false;
+  }
+
+  const body = {
+    message_id: messageId,
+    status: 'pending',
+    url: urlLink,
+    atd_type: atdData.atd_type,
+    atd_id: atdData.atd_id,
+    atd_raw: atdData.atd_raw,
+    sender_jid: senderJid,
+    reply_to_jid: replyToJid,
+    reply_status: null
+  };
+
+  const res = await fetch(apiUrl, {
+    method: 'POST',
+    headers: { ...headers, Prefer: 'return=representation' },
+    body: JSON.stringify(body)
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error('[ARTAUTO] Erro ao criar tarefa:', res.status, errText.slice(0, 200));
+    return false;
+  }
+
+  return true;
+}
+
+async function artautoProcessarMensagem(msg, texto, remetente, messageId) {
+  if (!ARTAUTO_ENABLED) return;
+  if (String(remetente || '').endsWith('@g.us')) return;
+  if (!ARTAUTO_AUTHORIZED_JIDS.includes(remetente)) return;
+
+  const url = artautoExtrairURL(texto);
+  if (!url) return;
+
+  const atdData = artautoExtrairATD(texto);
+  if (!atdData) return;
+
+  const replyToJid = autorDaMensagem(msg) || remetente;
+
+  const created = await artautoCriarTarefa(messageId, url, atdData, remetente, replyToJid);
+
+  if (created) {
+    await sock.sendMessage(remetente, {
+      text: `ðŸ¤– ArtAuto recebeu a banca!\n\nðŸ“Œ ${atdData.atd_raw}\nðŸ”— ${url}\n\nâ³ Processando...`
+    });
+  }
+}
+
+async function artautoAtualizarReplyStatus(messageId, replyStatus) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return;
+
+  const apiUrl = `${SUPABASE_URL}/rest/v1/${SUPABASE_TASKS_TABLE}?message_id=eq.${encodeURIComponent(messageId)}`;
+  const headers = {
+    'Content-Type': 'application/json',
+    'apikey': SUPABASE_SERVICE_ROLE_KEY,
+    'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`
+  };
+
+  await fetch(apiUrl, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify({ reply_status: replyStatus })
+  });
+}
+
+async function artautoProcessarResultado(task) {
+  const { message_id, reply_to_jid, atd_type, atd_id, status, print_url, error } = task;
+  if (!reply_to_jid) return;
+
+  if (status === 'completed' || status === 'timeout') {
+    if (print_url) {
+      try {
+        const response = await axios.get(print_url, {
+          responseType: 'arraybuffer',
+          timeout: 30000,
+          maxContentLength: 10 * 1024 * 1024
+        });
+
+        await sock.sendMessage(reply_to_jid, {
+          image: Buffer.from(response.data),
+          caption: `ðŸ¤– ArtAuto\n\nðŸ“Œ ${String(atd_type || '').toUpperCase()}: ${atd_id}\nâœ… Status: ${status}`
+        });
+
+        await artautoAtualizarReplyStatus(message_id, 'sent');
+      } catch (err) {
+        console.error('[ARTAUTO] Erro ao baixar/enviar print:', err.message);
+      }
+    } else {
+      await sock.sendMessage(reply_to_jid, {
+        text: `ðŸ¤– ArtAuto\n\nðŸ“Œ ${String(atd_type || '').toUpperCase()}: ${atd_id}\nâš ï¸ Status: ${status}, mas o print nÃ£o foi disponibilizado.`
+      });
+      await artautoAtualizarReplyStatus(message_id, 'sent');
+    }
+  } else if (status === 'failed') {
+    const msg = error ? `Erro: ${String(error).slice(0, 500)}` : 'Status: failed';
+    await sock.sendMessage(reply_to_jid, {
+      text: `ðŸ¤– ArtAuto\n\nðŸ“Œ ${String(atd_type || '').toUpperCase()}: ${atd_id}\nâŒ ${msg}`
+    });
+    await artautoAtualizarReplyStatus(message_id, 'sent');
+  }
+}
+
+async function artautoPolling() {
+  if (!ARTAUTO_ENABLED || !sock) return;
+  if (artautoLock.polling) return;
+
+  artautoLock.polling = true;
+
+  try {
+    const apiUrl = `${SUPABASE_URL}/rest/v1/${SUPABASE_TASKS_TABLE}?reply_status=eq.pending&status=in.(completed,timeout,failed)&order=created_at.asc&limit=5`;
+    const headers = {
+      'apikey': SUPABASE_SERVICE_ROLE_KEY,
+      'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      Accept: 'application/json'
+    };
+
+    const res = await fetch(apiUrl, { headers });
+
+    if (!res.ok) {
+      console.error('[ARTAUTO] Erro no polling:', res.status);
+      return;
+    }
+
+    const tasks = await res.json();
+    if (!Array.isArray(tasks) || tasks.length === 0) return;
+
+    for (const task of tasks) {
+      try {
+        await artautoProcessarResultado(task);
+      } catch (err) {
+        console.error('[ARTAUTO] Erro ao processar resultado:', err);
+      }
+    }
+  } catch (err) {
+    console.error('[ARTAUTO] Erro no polling:', err);
+  } finally {
+    artautoLock.polling = false;
+  }
+}
+
+if (ARTAUTO_ENABLED) {
+  setInterval(() => artautoPolling(), ARTAUTO_POLL_MS);
+  console.log('[ARTAUTO] Polling iniciado a cada', ARTAUTO_POLL_MS, 'ms');
+}
 
 
 

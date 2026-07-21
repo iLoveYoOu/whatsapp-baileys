@@ -35,14 +35,6 @@ const SUPABASE_TASKS_TABLE = process.env.SUPABASE_TASKS_TABLE || 'artauto_tasks'
 const ARTAUTO_ENABLED = process.env.ARTAUTO_ENABLED === 'true' && !!SUPABASE_URL && !!SUPABASE_SERVICE_ROLE_KEY;
 const ARTAUTO_POLL_MS = Number(process.env.ARTAUTO_POLL_MS) || 5000;
 
-const ARTAUTO_AUTHORIZED_JIDS = [
-  '554197319202@s.whatsapp.net',
-  '223566721249408@lid'
-];
-
-
-
-
 const EMOJI = Object.freeze({
   OK: '✅',
   ERRO: '⛔',
@@ -2527,8 +2519,6 @@ async function artautoCriarTarefa(messageId, urlLink, atdData, senderJid, replyT
 async function artautoProcessarMensagem(msg, texto, remetente, messageId) {
   if (!ARTAUTO_ENABLED) return;
   if (String(remetente || '').endsWith('@g.us')) return;
-  if (!ARTAUTO_AUTHORIZED_JIDS.includes(remetente)) return;
-
   const url = artautoExtrairURL(texto);
   if (!url) return;
 

@@ -2531,7 +2531,7 @@ async function artautoProcessarMensagem(msg, texto, remetente, messageId) {
 
   if (created) {
     await sock.sendMessage(remetente, {
-      text: `ðŸ¤– ArtAuto recebeu a banca!\n\nðŸ“Œ ${atdData.atd_raw}\nðŸ”— ${url}\n\nâ³ Processando...`
+      text: `\u{1F916} ArtAuto recebeu a banca!\n\n\u{1F4CC} ${atdData.atd_raw}\n\u{1F517} ${url}\n\n\u23F3 Processando...\n\nO C\u00E9u \u00E9 o Limite`
     });
   }
 }
@@ -2568,7 +2568,7 @@ async function artautoProcessarResultado(task) {
 
         await sock.sendMessage(reply_to_jid, {
           image: Buffer.from(response.data),
-          caption: `ðŸ¤– ArtAuto\n\nðŸ“Œ ${String(atd_type || '').toUpperCase()}: ${atd_id}\nâœ… Status: ${status}`
+          caption: `\u{1F916} ArtAuto\n\n\u{1F4CC} ${String(atd_type || '').toUpperCase()}: ${atd_id}\n\u2705 Status: ${status}\n\nO C\u00E9u \u00E9 o Limite`
         });
 
         await artautoAtualizarReplyStatus(message_id, 'sent');
@@ -2577,14 +2577,14 @@ async function artautoProcessarResultado(task) {
       }
     } else {
       await sock.sendMessage(reply_to_jid, {
-        text: `ðŸ¤– ArtAuto\n\nðŸ“Œ ${String(atd_type || '').toUpperCase()}: ${atd_id}\nâš ï¸ Status: ${status}, mas o print nÃ£o foi disponibilizado.`
+        text: `\u{1F916} ArtAuto\n\n\u{1F4CC} ${String(atd_type || '').toUpperCase()}: ${atd_id}\n\u26A0\uFE0F Status: ${status}, mas o print n\u00E3o foi disponibilizado.\n\nO C\u00E9u \u00E9 o Limite`
       });
       await artautoAtualizarReplyStatus(message_id, 'sent');
     }
   } else if (status === 'failed') {
     const msg = error ? `Erro: ${String(error).slice(0, 500)}` : 'Status: failed';
     await sock.sendMessage(reply_to_jid, {
-      text: `ðŸ¤– ArtAuto\n\nðŸ“Œ ${String(atd_type || '').toUpperCase()}: ${atd_id}\nâŒ ${msg}`
+      text: `\u{1F916} ArtAuto\n\n\u{1F4CC} ${String(atd_type || '').toUpperCase()}: ${atd_id}\n\u274C ${msg}\n\nO C\u00E9u \u00E9 o Limite`
     });
     await artautoAtualizarReplyStatus(message_id, 'sent');
   }

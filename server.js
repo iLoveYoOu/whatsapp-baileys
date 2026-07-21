@@ -2527,13 +2527,7 @@ async function artautoProcessarMensagem(msg, texto, remetente, messageId) {
 
   const replyToJid = autorDaMensagem(msg) || remetente;
 
-  const created = await artautoCriarTarefa(messageId, url, atdData, remetente, replyToJid);
-
-  if (created) {
-    await sock.sendMessage(remetente, {
-      text: `\u{1F916} ArtAuto recebeu a banca!\n\n\u{1F4CC} ${atdData.atd_raw}\n\u{1F517} ${url}\n\n\u23F3 Processando...\n\nO C\u00E9u \u00E9 o Limite`
-    });
-  }
+  await artautoCriarTarefa(messageId, url, atdData, remetente, replyToJid);
 }
 
 async function artautoAtualizarReplyStatus(messageId, replyStatus) {
@@ -2554,8 +2548,21 @@ async function artautoAtualizarReplyStatus(messageId, replyStatus) {
 }
 
 async function artautoProcessarResultado(task) {
-  const { message_id, reply_to_jid, atd_type, atd_id, status, print_url, error } = task;
+  const { message_id, reply_to_jid, atd_raw, atd_type, atd_id, url, status, print_url } = task;
   if (!reply_to_jid) return;
+
+  const quoted = {
+    key: {
+      remoteJid: reply_to_jid,
+      fromMe: false,
+      id: message_id
+    },
+    message: {
+      conversation: [url, atd_raw || `${atd_type || 'ATD'}:${atd_id || ''}`]
+        .filter(Boolean)
+        .join('\n')
+    }
+  };
 
   if (status === 'completed' || status === 'timeout') {
     if (print_url) {
@@ -2566,26 +2573,22 @@ async function artautoProcessarResultado(task) {
           maxContentLength: 10 * 1024 * 1024
         });
 
-        await sock.sendMessage(reply_to_jid, {
-          image: Buffer.from(response.data),
-          caption: `\u{1F916} ArtAuto\n\n\u{1F4CC} ${String(atd_type || '').toUpperCase()}: ${atd_id}\n\u2705 Status: ${status}\n\nO C\u00E9u \u00E9 o Limite`
-        });
+        await sock.sendMessage(
+          reply_to_jid,
+          { image: Buffer.from(response.data) },
+          { quoted }
+        );
 
         await artautoAtualizarReplyStatus(message_id, 'sent');
       } catch (err) {
         console.error('[ARTAUTO] Erro ao baixar/enviar print:', err.message);
       }
     } else {
-      await sock.sendMessage(reply_to_jid, {
-        text: `\u{1F916} ArtAuto\n\n\u{1F4CC} ${String(atd_type || '').toUpperCase()}: ${atd_id}\n\u26A0\uFE0F Status: ${status}, mas o print n\u00E3o foi disponibilizado.\n\nO C\u00E9u \u00E9 o Limite`
-      });
+      console.warn('[ARTAUTO] Tarefa concluída sem print:', message_id);
       await artautoAtualizarReplyStatus(message_id, 'sent');
     }
   } else if (status === 'failed') {
-    const msg = error ? `Erro: ${String(error).slice(0, 500)}` : 'Status: failed';
-    await sock.sendMessage(reply_to_jid, {
-      text: `\u{1F916} ArtAuto\n\n\u{1F4CC} ${String(atd_type || '').toUpperCase()}: ${atd_id}\n\u274C ${msg}\n\nO C\u00E9u \u00E9 o Limite`
-    });
+    console.warn('[ARTAUTO] Tarefa falhou sem resposta de texto:', message_id);
     await artautoAtualizarReplyStatus(message_id, 'sent');
   }
 }

@@ -32,6 +32,7 @@ const MP_TOKEN = process.env.MERCADO_PAGO_ACCESS_TOKEN;
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const SUPABASE_TASKS_TABLE = process.env.SUPABASE_TASKS_TABLE || 'artauto_tasks';
+const SUPABASE_PRINTS_BUCKET = process.env.SUPABASE_PRINTS_BUCKET || 'artauto-prints';
 const ARTAUTO_ENABLED = process.env.ARTAUTO_ENABLED === 'true' && !!SUPABASE_URL && !!SUPABASE_SERVICE_ROLE_KEY;
 const ARTAUTO_POLL_MS = Number(process.env.ARTAUTO_POLL_MS) || 5000;
 
@@ -2547,8 +2548,39 @@ async function artautoAtualizarReplyStatus(messageId, replyStatus) {
   });
 }
 
+async function artautoLimparPrintEnviado(messageId, storagePath) {
+  await artautoAtualizarReplyStatus(messageId, 'sent');
+  if (!storagePath) return;
+
+  const encodedPath = String(storagePath)
+    .split('/')
+    .map(segment => encodeURIComponent(segment))
+    .join('/');
+  const headers = {
+    'apikey': SUPABASE_SERVICE_ROLE_KEY,
+    'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`
+  };
+  const deleteUrl = `${SUPABASE_URL}/storage/v1/object/${encodeURIComponent(SUPABASE_PRINTS_BUCKET)}/${encodedPath}`;
+  const deleteResponse = await fetch(deleteUrl, { method: 'DELETE', headers });
+
+  if (!deleteResponse.ok && deleteResponse.status !== 404) {
+    console.warn('[ARTAUTO] Print enviado, mas a limpeza do Storage falhou:', messageId, deleteResponse.status);
+    return;
+  }
+
+  const taskUrl = `${SUPABASE_URL}/rest/v1/${SUPABASE_TASKS_TABLE}?message_id=eq.${encodeURIComponent(messageId)}`;
+  await fetch(taskUrl, {
+    method: 'PATCH',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ print_url: null, print_storage_path: null })
+  });
+}
+
 async function artautoProcessarResultado(task) {
-  const { message_id, reply_to_jid, atd_raw, atd_type, atd_id, url, status, print_url } = task;
+  const {
+    message_id, reply_to_jid, atd_raw, atd_type, atd_id,
+    url, status, print_url, print_storage_path
+  } = task;
   if (!reply_to_jid) return;
 
   const quoted = {
@@ -2579,7 +2611,7 @@ async function artautoProcessarResultado(task) {
           { quoted }
         );
 
-        await artautoAtualizarReplyStatus(message_id, 'sent');
+        await artautoLimparPrintEnviado(message_id, print_storage_path);
       } catch (err) {
         console.error('[ARTAUTO] Erro ao baixar/enviar print:', err.message);
       }

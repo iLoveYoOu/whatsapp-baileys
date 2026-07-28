@@ -38,12 +38,15 @@ async function normalizarMensagem(msg) {
   const remoto = jidParaBaileys(msg.from || msg.to || '');
   const participante = jidParaBaileys(msg.author || '');
   const message = {};
+  const possuiMidiaSuportada = msg.hasMedia && ['image', 'video', 'document'].includes(msg.type);
 
-  if (msg.hasMedia && (msg.type === 'image' || msg.type === 'video' || msg.type === 'document')) {
+  if (possuiMidiaSuportada) {
     const legenda = msg.body || '';
     if (msg.type === 'image') message.imageMessage = { caption: legenda };
     else if (msg.type === 'video') message.videoMessage = { caption: legenda };
     else message.documentMessage = { caption: legenda };
+  } else if (msg.hasQuotedMsg) {
+    message.extendedTextMessage = { text: msg.body || '' };
   } else {
     message.conversation = msg.body || '';
   }
@@ -60,7 +63,6 @@ async function normalizarMensagem(msg) {
         : { conversation: quoted.body || '' };
 
       const tipo = Object.keys(message)[0];
-      message[tipo] = message[tipo] || {};
       message[tipo].contextInfo = {
         stanzaId: quoted.id?._serialized || quoted.id?.id || '',
         participant: jidParaBaileys(quoted.author || quoted.from || ''),
@@ -89,6 +91,38 @@ function criarProvider(options = {}) {
   const emitter = new EventEmitter();
   const navegador = localizarNavegador();
   const dataPath = path.resolve(process.cwd(), '.wwebjs_auth');
+  const lockPath = path.join(dataPath, '.bot-local.lock');
+  let lockCriado = false;
+
+  fs.mkdirSync(dataPath, { recursive: true });
+  if (fs.existsSync(lockPath)) {
+    const pidAnterior = Number(fs.readFileSync(lockPath, 'utf8'));
+    let ativo = false;
+    if (pidAnterior) {
+      try {
+        process.kill(pidAnterior, 0);
+        ativo = true;
+      } catch (_) {
+        ativo = false;
+      }
+    }
+    if (ativo) {
+      throw new Error(`Outra instância do bot já está usando .wwebjs_auth (PID ${pidAnterior}).`);
+    }
+    fs.rmSync(lockPath, { force: true });
+  }
+  fs.writeFileSync(lockPath, String(process.pid), { flag: 'wx' });
+  lockCriado = true;
+
+  const liberarLock = () => {
+    if (!lockCriado) return;
+    try {
+      fs.rmSync(lockPath, { force: true });
+    } catch (_) {}
+    lockCriado = false;
+  };
+
+  process.once('exit', liberarLock);
 
   if (!navegador) {
     console.warn('[WWEBJS] Chrome/Edge não encontrado nos caminhos padrão.');
@@ -132,7 +166,7 @@ function criarProvider(options = {}) {
       let buffer;
       let mimetype;
       let filename;
-      let caption = payload.caption || '';
+      const caption = payload.caption || '';
 
       if (payload.image) {
         buffer = payload.image;
@@ -171,7 +205,7 @@ function criarProvider(options = {}) {
     const participants = Array.isArray(chat?.participants)
       ? chat.participants.map(p => ({
           id: jidParaBaileys(p.id?._serialized || p.id || ''),
-          admin: p.isAdmin ? 'admin' : p.isSuperAdmin ? 'superadmin' : null
+          admin: p.isSuperAdmin ? 'superadmin' : p.isAdmin ? 'admin' : null
         }))
       : [];
     return { id: jidParaBaileys(chat?.id?._serialized || jid), subject: chat?.name || '', participants };
@@ -183,11 +217,19 @@ function criarProvider(options = {}) {
     return Buffer.from(media.data, 'base64');
   }
 
+  async function destroy() {
+    try {
+      await client.destroy();
+    } finally {
+      liberarLock();
+    }
+  }
+
   return {
     client,
     on: (evento, handler) => emitter.on(evento, handler),
     initialize: () => client.initialize(),
-    destroy: () => client.destroy(),
+    destroy,
     sendMessage,
     groupMetadata,
     downloadMedia,

@@ -1,8 +1,11 @@
+auth/
+.env
 certs/
 *.pem
 *.key
 *.zip
-server_backup_*.jsblacklist.json
+server_backup_*.js
+blacklist.json
 backups-locais/
 server-corrigido.js
 server-atual.js

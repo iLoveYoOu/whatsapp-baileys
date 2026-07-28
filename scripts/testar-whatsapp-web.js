@@ -1,3 +1,4 @@
+const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const QRCode = require('qrcode');
@@ -9,6 +10,28 @@ let qrAtual = '';
 let status = 'iniciando';
 let encerrando = false;
 
+function localizarNavegador() {
+  const candidatos = [
+    process.env.CHROME_PATH,
+    process.env.PUPPETEER_EXECUTABLE_PATH,
+    process.env.PROGRAMFILES && path.join(process.env.PROGRAMFILES, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+    process.env['PROGRAMFILES(X86)'] && path.join(process.env['PROGRAMFILES(X86)'], 'Google', 'Chrome', 'Application', 'chrome.exe'),
+    process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+    process.env.PROGRAMFILES && path.join(process.env.PROGRAMFILES, 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+    process.env['PROGRAMFILES(X86)'] && path.join(process.env['PROGRAMFILES(X86)'], 'Microsoft', 'Edge', 'Application', 'msedge.exe')
+  ].filter(Boolean);
+
+  return candidatos.find((arquivo) => fs.existsSync(arquivo));
+}
+
+const navegador = localizarNavegador();
+
+if (navegador) {
+  console.log('[WWEBJS] Navegador encontrado:', navegador);
+} else {
+  console.warn('[WWEBJS] Chrome/Edge não encontrado nos caminhos padrão.');
+}
+
 const client = new Client({
   authStrategy: new LocalAuth({
     clientId: 'bot-paliativo',
@@ -16,7 +39,13 @@ const client = new Client({
   }),
   puppeteer: {
     headless: false,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
+    executablePath: navegador || undefined,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu'
+    ]
   }
 });
 

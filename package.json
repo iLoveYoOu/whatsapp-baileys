@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "prestart": "node patch-baileys-reconnect.js",
-    "start": "node server.js"
+    "start": "node server.js",
+    "test:wwebjs": "node scripts/testar-whatsapp-web.js"
   },
   "engines": {
     "node": "20.x"
@@ -18,6 +19,7 @@
     "express": "latest",
     "googleapis": "latest",
     "pino": "latest",
-    "qrcode": "latest"
+    "qrcode": "latest",
+    "whatsapp-web.js": "latest"
   }
 }

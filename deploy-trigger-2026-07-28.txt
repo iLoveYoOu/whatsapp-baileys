@@ -1,0 +1,1 @@
+Deploy solicitado em 2026-07-28 para aplicar correção e trava de reconexão do Baileys.

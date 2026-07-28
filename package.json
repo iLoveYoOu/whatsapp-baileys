@@ -8,11 +8,11 @@
     "start": "node server.js"
   },
   "engines": {
-    "node": ">=18"
+    "node": "20.x"
   },
   "dependencies": {
     "@hapi/boom": "latest",
-    "@whiskeysockets/baileys": "latest",
+    "@whiskeysockets/baileys": "6.7.22",
     "axios": "^1.17.0",
     "dotenv": "latest",
     "express": "latest",

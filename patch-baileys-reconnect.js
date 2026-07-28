@@ -3,8 +3,8 @@ const fs = require('fs');
 const arquivo = './server.js';
 let codigo = fs.readFileSync(arquivo, 'utf8');
 
-if (codigo.includes('BAILEYS_RECONNECT_FIX_V3')) {
-  console.log('[PATCH] Correção V3 do Baileys já aplicada.');
+if (codigo.includes('BAILEYS_RECONNECT_FIX_V4')) {
+  console.log('[PATCH] Correção V4 do Baileys já aplicada.');
   process.exit(0);
 }
 
@@ -17,14 +17,11 @@ codigo = codigo.replace(
   `  const { version } =
     await fetchLatestBaileysVersion();
 
-`,
-  ''
-);
+ `,
+  `  const version = [2, 3000, 1032141294];
+  console.log('[WA] Versão de protocolo fixa:', version.join('.'));
 
-codigo = codigo.replace(
-  `    version,
-    auth: state,`,
-  `    auth: state,`
+ `
 );
 
 codigo = codigo.replace(
@@ -34,7 +31,7 @@ codigo = codigo.replace(
 
 const estadoAntigo = "let status = 'iniciando';";
 const estadoNovo = `let status = 'iniciando';
-// BAILEYS_RECONNECT_FIX_V3
+// BAILEYS_RECONNECT_FIX_V4
 let conectandoWhatsApp = false;
 let timerReconexao = null;
 let tentativaReconexao = 0;
@@ -113,7 +110,7 @@ const blocoNovo = `    if (connection === 'open') {
         status = 'deslogado';
         qrAtual = '';
         tentativaReconexao = 0;
-        console.error('[WA] Sessão deslogada. Reconexão automática bloqueada para evitar loop.');
+        console.error('[WA] Sessão deslogada. Reconexão automática bloqueada.');
         return;
       }
 
@@ -121,7 +118,7 @@ const blocoNovo = `    if (connection === 'open') {
 
       if (tentativaReconexao >= MAX_TENTATIVAS_RECONEXAO) {
         status = 'pausa_seguranca';
-        console.error('[WA] Trava de segurança ativada após', tentativaReconexao, 'falhas. Pausa de 15 minutos.');
+        console.error('[WA] Trava ativada após', tentativaReconexao, 'falhas. Pausa de 15 minutos.');
         tentativaReconexao = 0;
         if (timerReconexao) clearTimeout(timerReconexao);
         timerReconexao = setTimeout(() => {
@@ -166,5 +163,21 @@ const finalNovo = `  } catch (err) {
 if (!codigo.includes(finalAntigo)) throw new Error('Listener messages.update não encontrado.');
 codigo = codigo.replace(finalAntigo, finalNovo);
 
+codigo = codigo.replace(
+  `    if (!sock) {
+      return res.status(503).json({
+        sucesso: false,
+        erro: 'WhatsApp não conectado'
+      });
+    }`,
+  `    if (!sock || status !== 'conectado' || !sock.user?.id) {
+      return res.status(503).json({
+        sucesso: false,
+        erro: 'WhatsApp não conectado',
+        status
+      });
+    }`
+);
+
 fs.writeFileSync(arquivo, codigo, 'utf8');
-console.log('[PATCH] Correção V3: navegador oficial, versão estável e trava aplicados.');
+console.log('[PATCH] V4 aplicada: protocolo WA fixo, trava de reconexão e PIX offline bloqueado.');

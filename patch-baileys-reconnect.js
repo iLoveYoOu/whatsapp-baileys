@@ -3,14 +3,38 @@ const fs = require('fs');
 const arquivo = './server.js';
 let codigo = fs.readFileSync(arquivo, 'utf8');
 
-if (codigo.includes('BAILEYS_RECONNECT_FIX_V2')) {
-  console.log('[PATCH] Trava de reconexão já aplicada.');
+if (codigo.includes('BAILEYS_RECONNECT_FIX_V3')) {
+  console.log('[PATCH] Correção V3 do Baileys já aplicada.');
   process.exit(0);
 }
 
+codigo = codigo.replace(
+  '  fetchLatestBaileysVersion,\n',
+  '  Browsers,\n'
+);
+
+codigo = codigo.replace(
+  `  const { version } =
+    await fetchLatestBaileysVersion();
+
+`,
+  ''
+);
+
+codigo = codigo.replace(
+  `    version,
+    auth: state,`,
+  `    auth: state,`
+);
+
+codigo = codigo.replace(
+  `    browser: ['Sheets Bot', 'Chrome', '1.0'],`,
+  `    browser: Browsers.ubuntu('Sheets Bot'),`
+);
+
 const estadoAntigo = "let status = 'iniciando';";
 const estadoNovo = `let status = 'iniciando';
-// BAILEYS_RECONNECT_FIX_V2
+// BAILEYS_RECONNECT_FIX_V3
 let conectandoWhatsApp = false;
 let timerReconexao = null;
 let tentativaReconexao = 0;
@@ -143,4 +167,4 @@ if (!codigo.includes(finalAntigo)) throw new Error('Listener messages.update nã
 codigo = codigo.replace(finalAntigo, finalNovo);
 
 fs.writeFileSync(arquivo, codigo, 'utf8');
-console.log('[PATCH] Diagnóstico e trava de segurança do Baileys aplicados.');
+console.log('[PATCH] Correção V3: navegador oficial, versão estável e trava aplicados.');

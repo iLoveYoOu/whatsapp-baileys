@@ -6,7 +6,8 @@
   "scripts": {
     "prestart": "node patch-baileys-reconnect.js && node scripts/aplicar-migracao-wwebjs.js && node scripts/corrigir-lock-wwebjs.js",
     "start": "node server.js",
-    "test:wwebjs": "node scripts/testar-whatsapp-web.js"
+    "test:wwebjs": "node scripts/testar-whatsapp-web.js",
+    "test:wwebjs-auth": "node --test test/wwebjs-auth-path.test.js"
   },
   "engines": {
     "node": "20.x"

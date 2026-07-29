@@ -2,6 +2,12 @@ const fs = require('fs');
 const path = require('path');
 const EventEmitter = require('events');
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
+const {
+  CLIENT_ID_PADRAO,
+  analisarSessao,
+  registrarDiagnosticoSessao,
+  resolverDataPath
+} = require('./wwebjs-auth-path');
 
 function localizarNavegador() {
   const candidatos = [
@@ -101,7 +107,8 @@ async function normalizarMensagem(msg) {
 function criarProvider(options = {}) {
   const emitter = new EventEmitter();
   const navegador = localizarNavegador();
-  const dataPath = path.resolve(process.env.WWEBJS_AUTH_PATH || path.join(process.cwd(), '.wwebjs_auth'));
+  const clientId = String(process.env.WWEBJS_CLIENT_ID || CLIENT_ID_PADRAO).trim();
+  const { dataPath, origem: origemDataPath } = resolverDataPath();
   const lockPath = path.join(dataPath, '.bot-local.lock');
   let lockCriado = false;
 
@@ -124,6 +131,7 @@ function criarProvider(options = {}) {
   }
   fs.writeFileSync(lockPath, String(process.pid), { flag: 'wx' });
   lockCriado = true;
+  registrarDiagnosticoSessao(analisarSessao({ dataPath, clientId }), origemDataPath);
 
   const liberarLock = () => {
     if (!lockCriado) return;
@@ -142,7 +150,7 @@ function criarProvider(options = {}) {
   }
 
   const client = new Client({
-    authStrategy: new LocalAuth({ clientId: 'bot-paliativo', dataPath }),
+    authStrategy: new LocalAuth({ clientId, dataPath }),
     authTimeoutMs: Number(process.env.WWEBJS_AUTH_TIMEOUT_MS) || 120000,
     qrMaxRetries: Number(process.env.WWEBJS_QR_MAX_RETRIES) || 3,
     puppeteer: {

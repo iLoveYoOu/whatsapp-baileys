@@ -84,6 +84,13 @@ async function conectarWhatsAppWwebjs() {
   await carregarBlacklistRemota();
   console.log('[WWEBJS] Inicializando com a sessão .wwebjs_auth existente...');
   status = 'inicializando_wwebjs';
+  let recuperacaoLogoutTimer = null;
+
+  const cancelarRecuperacaoLogout = () => {
+    if (!recuperacaoLogoutTimer) return;
+    clearTimeout(recuperacaoLogoutTimer);
+    recuperacaoLogoutTimer = null;
+  };
 
   wwebjsProvider = criarWwebjsProvider({
     headless: String(process.env.WWEBJS_HEADLESS || 'false').toLowerCase() === 'true'
@@ -91,22 +98,46 @@ async function conectarWhatsAppWwebjs() {
   sock = wwebjsProvider;
 
   wwebjsProvider.on('qr', qr => {
+    cancelarRecuperacaoLogout();
     qrAtual = qr;
     status = 'aguardando_qr';
     console.log('[WWEBJS] QR disponível em /qr. A sessão existente não foi apagada.');
   });
   wwebjsProvider.on('authenticated', () => {
+    cancelarRecuperacaoLogout();
     status = 'autenticado';
     console.log('[WWEBJS] Sessão autenticada.');
   });
   wwebjsProvider.on('ready', () => {
+    cancelarRecuperacaoLogout();
     qrAtual = '';
     status = 'conectado';
     console.log('[WWEBJS] WhatsApp conectado e pronto.');
   });
   wwebjsProvider.on('disconnected', motivo => {
-    status = 'desconectado';
     console.error('[WWEBJS] Desconectado:', motivo);
+
+    if (String(motivo).toUpperCase() === 'LOGOUT') {
+      qrAtual = '';
+      status = 'preparando_novo_qr';
+      console.warn('[WWEBJS] Logout confirmado. O LocalAuth invalidou a sessão; aguardando novo QR em /qr.');
+
+      cancelarRecuperacaoLogout();
+      recuperacaoLogoutTimer = setTimeout(async () => {
+        if (status !== 'preparando_novo_qr') return;
+
+        console.error('[WWEBJS] Novo QR não apareceu após logout. Reiniciando o processo sem apagar a sessão.');
+        try {
+          await wwebjsProvider.destroy();
+        } catch (erro) {
+          console.warn('[WWEBJS] Falha ao encerrar cliente antes do reinício:', erro.message);
+        }
+        process.exit(1);
+      }, Number(process.env.WWEBJS_LOGOUT_QR_TIMEOUT_MS) || 45000);
+      return;
+    }
+
+    status = 'desconectado';
   });
   wwebjsProvider.on('auth_failure', motivo => {
     status = 'falha_autenticacao';

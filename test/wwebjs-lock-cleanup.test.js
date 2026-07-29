@@ -8,7 +8,7 @@ const test = require('node:test');
 test('remove somente o lock obsoleto e preserva o perfil LocalAuth', () => {
   const dataPath = fs.mkdtempSync(path.join(os.tmpdir(), 'wwebjs-lock-'));
   const lockPath = path.join(dataPath, '.bot-local.lock');
-  const arquivoSessao = path.join(dataPath, 'session-bot-paliativo', 'Default', 'Preferences');
+  const arquivoSessao = path.join(dataPath, 'session-bot-render', 'Default', 'Preferences');
 
   try {
     fs.mkdirSync(path.dirname(arquivoSessao), { recursive: true });

@@ -34,7 +34,7 @@ test('usa o disco persistente do Render sem exigir variável adicional', () => {
 });
 
 test('LocalAuth com clientId usa session-<clientId>', () => {
-  assert.equal(nomeDiretorioSessao('bot-paliativo'), 'session-bot-paliativo');
+  assert.equal(nomeDiretorioSessao('bot-render'), 'session-bot-render');
   assert.equal(nomeDiretorioSessao(''), 'session');
 });
 
@@ -50,12 +50,12 @@ test('identifica perfil Chromium válido e sessões com outro clientId', () => {
 
   try {
     fs.mkdirSync(
-      path.join(dataPath, 'session-bot-paliativo', 'Default', 'Local Storage', 'leveldb'),
+      path.join(dataPath, 'session-bot-render', 'Default', 'Local Storage', 'leveldb'),
       { recursive: true }
     );
     fs.mkdirSync(path.join(dataPath, 'session-antigo'), { recursive: true });
 
-    const diagnostico = analisarSessao({ dataPath, clientId: 'bot-paliativo' });
+    const diagnostico = analisarSessao({ dataPath, clientId: 'bot-render' });
     assert.equal(diagnostico.perfilExiste, true);
     assert.equal(diagnostico.defaultExiste, true);
     assert.equal(diagnostico.localStorageExiste, true);
@@ -70,7 +70,7 @@ test('distingue credenciais Baileys de um perfil LocalAuth', () => {
 
   try {
     fs.writeFileSync(path.join(dataPath, 'creds.json'), '{}');
-    const diagnostico = analisarSessao({ dataPath, clientId: 'bot-paliativo' });
+    const diagnostico = analisarSessao({ dataPath, clientId: 'bot-render' });
     assert.equal(diagnostico.pareceBaileys, true);
     assert.equal(diagnostico.perfilExiste, false);
   } finally {

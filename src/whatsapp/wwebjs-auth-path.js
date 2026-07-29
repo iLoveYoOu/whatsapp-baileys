@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const CLIENT_ID_PADRAO = 'bot-paliativo';
+const CLIENT_ID_PADRAO = 'bot-render';
 const DISCO_PERSISTENTE_RENDER = '/var/data';
 
 function diretorioExiste(diretorio) {

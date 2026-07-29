@@ -1,4 +1,4 @@
-const fs = require('fs');
+﻿const fs = require('fs');
 const path = require('path');
 const EventEmitter = require('events');
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
@@ -69,7 +69,7 @@ async function normalizarMensagem(msg) {
         quotedMessage
       };
     } catch (erro) {
-      console.warn('[WWEBJS] Não foi possível normalizar a mensagem citada:', erro.message);
+      console.warn('[WWEBJS] NÃ£o foi possÃ­vel normalizar a mensagem citada:', erro.message);
     }
   }
 
@@ -90,7 +90,7 @@ async function normalizarMensagem(msg) {
 function criarProvider(options = {}) {
   const emitter = new EventEmitter();
   const navegador = localizarNavegador();
-  const dataPath = path.resolve(process.cwd(), '.wwebjs_auth');
+  const dataPath = path.resolve(process.env.WWEBJS_AUTH_PATH || path.join(process.cwd(), '.wwebjs_auth'));
   const lockPath = path.join(dataPath, '.bot-local.lock');
   let lockCriado = false;
 
@@ -107,7 +107,7 @@ function criarProvider(options = {}) {
       }
     }
     if (ativo) {
-      throw new Error(`Outra instância do bot já está usando .wwebjs_auth (PID ${pidAnterior}).`);
+      throw new Error(`Outra instÃ¢ncia do bot jÃ¡ estÃ¡ usando .wwebjs_auth (PID ${pidAnterior}).`);
     }
     fs.rmSync(lockPath, { force: true });
   }
@@ -125,7 +125,7 @@ function criarProvider(options = {}) {
   process.once('exit', liberarLock);
 
   if (!navegador) {
-    console.warn('[WWEBJS] Chrome/Edge não encontrado nos caminhos padrão.');
+    console.warn('[WWEBJS] Chrome/Edge nÃ£o encontrado nos caminhos padrÃ£o.');
   } else {
     console.log('[WWEBJS] Navegador:', navegador);
   }
@@ -182,7 +182,7 @@ function criarProvider(options = {}) {
         filename = payload.fileName || 'documento.bin';
         opcoes.sendMediaAsDocument = true;
       } else {
-        throw new Error('Payload não suportado pelo provider whatsapp-web.js');
+        throw new Error('Payload nÃ£o suportado pelo provider whatsapp-web.js');
       }
 
       if (!Buffer.isBuffer(buffer)) buffer = Buffer.from(buffer);
@@ -213,7 +213,7 @@ function criarProvider(options = {}) {
 
   async function downloadMedia(rawMessage) {
     const media = await rawMessage.downloadMedia();
-    if (!media?.data) throw new Error('Mídia não disponível no whatsapp-web.js');
+    if (!media?.data) throw new Error('MÃ­dia nÃ£o disponÃ­vel no whatsapp-web.js');
     return Buffer.from(media.data, 'base64');
   }
 
@@ -239,3 +239,5 @@ function criarProvider(options = {}) {
 }
 
 module.exports = { criarProvider, localizarNavegador, jidParaWwebjs, jidParaBaileys, normalizarMensagem };
+
+

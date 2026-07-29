@@ -1,4 +1,4 @@
-﻿const fs = require('fs');
+const fs = require('fs');
 const path = require('path');
 const EventEmitter = require('events');
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
@@ -15,6 +15,17 @@ function localizarNavegador() {
   ].filter(Boolean);
 
   return candidatos.find(arquivo => fs.existsSync(arquivo));
+}
+
+function esperar(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function erroDeContextoDestruido(erro) {
+  const mensagem = String(erro?.message || erro || '');
+  return mensagem.includes('Execution context was destroyed') ||
+    mensagem.includes('Cannot find context with specified id') ||
+    mensagem.includes('Inspected target navigated or closed');
 }
 
 function jidParaWwebjs(jid) {
@@ -69,7 +80,7 @@ async function normalizarMensagem(msg) {
         quotedMessage
       };
     } catch (erro) {
-      console.warn('[WWEBJS] NÃ£o foi possÃ­vel normalizar a mensagem citada:', erro.message);
+      console.warn('[WWEBJS] Não foi possível normalizar a mensagem citada:', erro.message);
     }
   }
 
@@ -107,7 +118,7 @@ function criarProvider(options = {}) {
       }
     }
     if (ativo) {
-      throw new Error(`Outra instÃ¢ncia do bot jÃ¡ estÃ¡ usando .wwebjs_auth (PID ${pidAnterior}).`);
+      throw new Error(`Outra instância do bot já está usando .wwebjs_auth (PID ${pidAnterior}).`);
     }
     fs.rmSync(lockPath, { force: true });
   }
@@ -125,17 +136,29 @@ function criarProvider(options = {}) {
   process.once('exit', liberarLock);
 
   if (!navegador) {
-    console.warn('[WWEBJS] Chrome/Edge nÃ£o encontrado nos caminhos padrÃ£o.');
+    console.warn('[WWEBJS] Chrome/Edge não encontrado nos caminhos configurados.');
   } else {
     console.log('[WWEBJS] Navegador:', navegador);
   }
 
   const client = new Client({
     authStrategy: new LocalAuth({ clientId: 'bot-paliativo', dataPath }),
+    authTimeoutMs: Number(process.env.WWEBJS_AUTH_TIMEOUT_MS) || 120000,
+    qrMaxRetries: Number(process.env.WWEBJS_QR_MAX_RETRIES) || 3,
     puppeteer: {
       headless: options.headless ?? false,
       executablePath: navegador || undefined,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
+      protocolTimeout: Number(process.env.WWEBJS_PROTOCOL_TIMEOUT_MS) || 180000,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--no-first-run',
+        '--no-zygote',
+        '--disable-extensions',
+        '--disable-background-networking'
+      ]
     }
   });
 
@@ -151,6 +174,29 @@ function criarProvider(options = {}) {
       emitter.emit('error', erro);
     }
   });
+
+  async function initialize() {
+    const maxTentativas = Math.max(1, Number(process.env.WWEBJS_INIT_RETRIES) || 3);
+
+    for (let tentativa = 1; tentativa <= maxTentativas; tentativa += 1) {
+      try {
+        console.log(`[WWEBJS] Inicialização ${tentativa}/${maxTentativas}...`);
+        await client.initialize();
+        return;
+      } catch (erro) {
+        const transitorio = erroDeContextoDestruido(erro);
+        console.error(`[WWEBJS] Falha na inicialização ${tentativa}/${maxTentativas}:`, erro?.message || erro);
+
+        if (!transitorio || tentativa >= maxTentativas) {
+          throw erro;
+        }
+
+        const esperaMs = 5000 * tentativa;
+        console.warn(`[WWEBJS] Contexto do navegador mudou durante a carga. Nova tentativa em ${esperaMs} ms sem apagar a sessão.`);
+        await esperar(esperaMs);
+      }
+    }
+  }
 
   async function sendMessage(jid, payload = {}, optionsEnvio = {}) {
     const destino = jidParaWwebjs(jid);
@@ -182,7 +228,7 @@ function criarProvider(options = {}) {
         filename = payload.fileName || 'documento.bin';
         opcoes.sendMediaAsDocument = true;
       } else {
-        throw new Error('Payload nÃ£o suportado pelo provider whatsapp-web.js');
+        throw new Error('Payload não suportado pelo provider whatsapp-web.js');
       }
 
       if (!Buffer.isBuffer(buffer)) buffer = Buffer.from(buffer);
@@ -213,7 +259,7 @@ function criarProvider(options = {}) {
 
   async function downloadMedia(rawMessage) {
     const media = await rawMessage.downloadMedia();
-    if (!media?.data) throw new Error('MÃ­dia nÃ£o disponÃ­vel no whatsapp-web.js');
+    if (!media?.data) throw new Error('Mídia não disponível no whatsapp-web.js');
     return Buffer.from(media.data, 'base64');
   }
 
@@ -228,7 +274,7 @@ function criarProvider(options = {}) {
   return {
     client,
     on: (evento, handler) => emitter.on(evento, handler),
-    initialize: () => client.initialize(),
+    initialize,
     destroy,
     sendMessage,
     groupMetadata,
@@ -239,5 +285,3 @@ function criarProvider(options = {}) {
 }
 
 module.exports = { criarProvider, localizarNavegador, jidParaWwebjs, jidParaBaileys, normalizarMensagem };
-
-

@@ -109,39 +109,8 @@ function criarProvider(options = {}) {
   const navegador = localizarNavegador();
   const clientId = String(process.env.WWEBJS_CLIENT_ID || CLIENT_ID_PADRAO).trim();
   const { dataPath, origem: origemDataPath } = resolverDataPath();
-  const lockPath = path.join(dataPath, '.bot-local.lock');
-  let lockCriado = false;
-
   fs.mkdirSync(dataPath, { recursive: true });
-  if (fs.existsSync(lockPath)) {
-    const pidAnterior = Number(fs.readFileSync(lockPath, 'utf8'));
-    let ativo = false;
-    if (pidAnterior) {
-      try {
-        process.kill(pidAnterior, 0);
-        ativo = true;
-      } catch (_) {
-        ativo = false;
-      }
-    }
-    if (ativo) {
-      throw new Error(`Outra instância do bot já está usando .wwebjs_auth (PID ${pidAnterior}).`);
-    }
-    fs.rmSync(lockPath, { force: true });
-  }
-  fs.writeFileSync(lockPath, String(process.pid), { flag: 'wx' });
-  lockCriado = true;
   registrarDiagnosticoSessao(analisarSessao({ dataPath, clientId }), origemDataPath);
-
-  const liberarLock = () => {
-    if (!lockCriado) return;
-    try {
-      fs.rmSync(lockPath, { force: true });
-    } catch (_) {}
-    lockCriado = false;
-  };
-
-  process.once('exit', liberarLock);
 
   if (!navegador) {
     console.warn('[WWEBJS] Chrome/Edge não encontrado nos caminhos configurados.');
@@ -272,11 +241,7 @@ function criarProvider(options = {}) {
   }
 
   async function destroy() {
-    try {
-      await client.destroy();
-    } finally {
-      liberarLock();
-    }
+    await client.destroy();
   }
 
   return {

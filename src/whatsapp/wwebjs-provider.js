@@ -24,17 +24,6 @@ function localizarNavegador() {
   return candidatos.find(arquivo => fs.existsSync(arquivo));
 }
 
-function esperar(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-function erroDeContextoDestruido(erro) {
-  const mensagem = String(erro?.message || erro || '');
-  return mensagem.includes('Execution context was destroyed') ||
-    mensagem.includes('Cannot find context with specified id') ||
-    mensagem.includes('Inspected target navigated or closed');
-}
-
 function jidParaWwebjs(jid) {
   const valor = String(jid || '');
   if (valor.endsWith('@g.us') || valor.endsWith('@c.us')) return valor;
@@ -155,26 +144,8 @@ function criarProvider(options = {}) {
   });
 
   async function initialize() {
-    const maxTentativas = Math.max(1, Number(process.env.WWEBJS_INIT_RETRIES) || 3);
-
-    for (let tentativa = 1; tentativa <= maxTentativas; tentativa += 1) {
-      try {
-        console.log(`[WWEBJS] Inicialização ${tentativa}/${maxTentativas}...`);
-        await client.initialize();
-        return;
-      } catch (erro) {
-        const transitorio = erroDeContextoDestruido(erro);
-        console.error(`[WWEBJS] Falha na inicialização ${tentativa}/${maxTentativas}:`, erro?.message || erro);
-
-        if (!transitorio || tentativa >= maxTentativas) {
-          throw erro;
-        }
-
-        const esperaMs = 5000 * tentativa;
-        console.warn(`[WWEBJS] Contexto do navegador mudou durante a carga. Nova tentativa em ${esperaMs} ms sem apagar a sessão.`);
-        await esperar(esperaMs);
-      }
-    }
+    console.log('[WWEBJS] Inicialização do cliente...');
+    await client.initialize();
   }
 
   async function sendMessage(jid, payload = {}, optionsEnvio = {}) {

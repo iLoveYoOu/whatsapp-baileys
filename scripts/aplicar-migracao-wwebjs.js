@@ -15,32 +15,33 @@ fs.mkdirSync(path.dirname(backup), { recursive: true });
 fs.copyFileSync(arquivo, backup);
 console.log('[MIGRAÇÃO] Backup:', backup);
 
-const blocoBaileys = `const {
-  default: makeWASocket,
-  useMultiFileAuthState,
-  DisconnectReason,
-  fetchLatestBaileysVersion,
-  getContentType,
-  downloadContentFromMessage
-} = require('@whiskeysockets/baileys');`;
+/*
+ * O server.js pode ter sido ajustado pelo patch-baileys-reconnect.js e,
+ * por isso, a lista de imports do Baileys não é necessariamente idêntica
+ * à versão original. Localizamos o require completo por expressão regular,
+ * preservamos seu conteúdo e apenas acrescentamos o provider wwebjs abaixo.
+ */
+const regexImportBaileys = /const\s*\{[\s\S]*?\}\s*=\s*require\(['"]@whiskeysockets\/baileys['"]\);/m;
+const importBaileysEncontrado = codigo.match(regexImportBaileys)?.[0];
 
-if (!codigo.includes(blocoBaileys)) {
-  throw new Error('Bloco de importação do Baileys não encontrado; nenhuma alteração foi gravada.');
+if (!importBaileysEncontrado) {
+  throw new Error('Importação do Baileys não encontrada; nenhuma alteração foi gravada.');
 }
 
 codigo = codigo.replace(
-  blocoBaileys,
-  `${blocoBaileys}\n\nconst { criarProvider: criarWwebjsProvider } = require('./src/whatsapp/wwebjs-provider');\nconst WHATSAPP_PROVIDER = String(process.env.WHATSAPP_PROVIDER || 'baileys').toLowerCase();\nlet wwebjsProvider = null;`
+  importBaileysEncontrado,
+  `${importBaileysEncontrado}\n\nconst { criarProvider: criarWwebjsProvider } = require('./src/whatsapp/wwebjs-provider');\nconst WHATSAPP_PROVIDER = String(process.env.WHATSAPP_PROVIDER || 'baileys').toLowerCase();\nlet wwebjsProvider = null;`
 );
 
-const assinatura = 'async function conectarWhatsApp() {';
-if (!codigo.includes(assinatura)) {
+const assinaturaRegex = /async\s+function\s+conectarWhatsApp\s*\(\s*\)\s*\{/;
+if (!assinaturaRegex.test(codigo)) {
   throw new Error('Função conectarWhatsApp não encontrada; nenhuma alteração foi gravada.');
 }
-codigo = codigo.replace(assinatura, 'async function conectarWhatsAppBaileys() {');
+codigo = codigo.replace(assinaturaRegex, 'async function conectarWhatsAppBaileys() {');
 
-const ancora = '\nfunction numeroPixBR(valor) {';
-if (!codigo.includes(ancora)) {
+const ancoraRegex = /\nfunction\s+numeroPixBR\s*\(valor\)\s*\{/;
+const ancoraMatch = codigo.match(ancoraRegex)?.[0];
+if (!ancoraMatch) {
   throw new Error('Âncora numeroPixBR não encontrada; nenhuma alteração foi gravada.');
 }
 
@@ -129,14 +130,14 @@ async function conectarWhatsApp() {
 }
 `;
 
-codigo = codigo.replace(ancora, `${novoTransporte}${ancora}`);
+codigo = codigo.replace(ancoraMatch, `${novoTransporte}${ancoraMatch}`);
 
-const downloadOriginal = 'const buffer = await baixarImagem(msg.message);';
-if (!codigo.includes(downloadOriginal)) {
+const downloadRegex = /const\s+buffer\s*=\s*await\s+baixarImagem\s*\(\s*msg\.message\s*\)\s*;/;
+if (!downloadRegex.test(codigo)) {
   throw new Error('Ponto de download de imagem não encontrado; nenhuma alteração foi gravada.');
 }
 codigo = codigo.replace(
-  downloadOriginal,
+  downloadRegex,
   `const buffer = msg._wwebjsRaw && wwebjsProvider
     ? await wwebjsProvider.downloadMedia(msg._wwebjsRaw)
     : await baixarImagem(msg.message);`

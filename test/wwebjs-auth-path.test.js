@@ -6,7 +6,8 @@ const test = require('node:test');
 const {
   analisarSessao,
   nomeDiretorioSessao,
-  resolverDataPath
+  resolverDataPath,
+  resolverQrMaxRetries
 } = require('../src/whatsapp/wwebjs-auth-path');
 
 test('usa WWEBJS_AUTH_PATH quando configurado', () => {
@@ -35,6 +36,13 @@ test('usa o disco persistente do Render sem exigir variável adicional', () => {
 test('LocalAuth com clientId usa session-<clientId>', () => {
   assert.equal(nomeDiretorioSessao('bot-paliativo'), 'session-bot-paliativo');
   assert.equal(nomeDiretorioSessao(''), 'session');
+});
+
+test('mantém o QR disponível sem limite por padrão', () => {
+  assert.equal(resolverQrMaxRetries(), 0);
+  assert.equal(resolverQrMaxRetries('0'), 0);
+  assert.equal(resolverQrMaxRetries('3'), 3);
+  assert.equal(resolverQrMaxRetries('inválido'), 0);
 });
 
 test('identifica perfil Chromium válido e sessões com outro clientId', () => {

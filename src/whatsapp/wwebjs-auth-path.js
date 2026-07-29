@@ -42,6 +42,12 @@ function nomeDiretorioSessao(clientId = CLIENT_ID_PADRAO) {
   return id ? `session-${id}` : 'session';
 }
 
+function resolverQrMaxRetries(valor = process.env.WWEBJS_QR_MAX_RETRIES) {
+  if (valor === undefined || valor === null || String(valor).trim() === '') return 0;
+  const numero = Number(valor);
+  return Number.isFinite(numero) ? Math.max(0, Math.trunc(numero)) : 0;
+}
+
 function analisarSessao({ dataPath, clientId = CLIENT_ID_PADRAO }) {
   const nomeSessao = nomeDiretorioSessao(clientId);
   const sessionPath = path.join(dataPath, nomeSessao);
@@ -111,5 +117,6 @@ module.exports = {
   analisarSessao,
   nomeDiretorioSessao,
   registrarDiagnosticoSessao,
-  resolverDataPath
+  resolverDataPath,
+  resolverQrMaxRetries
 };

@@ -6,7 +6,8 @@ const {
   CLIENT_ID_PADRAO,
   analisarSessao,
   registrarDiagnosticoSessao,
-  resolverDataPath
+  resolverDataPath,
+  resolverQrMaxRetries
 } = require('./wwebjs-auth-path');
 
 function localizarNavegador() {
@@ -121,7 +122,8 @@ function criarProvider(options = {}) {
   const client = new Client({
     authStrategy: new LocalAuth({ clientId, dataPath }),
     authTimeoutMs: Number(process.env.WWEBJS_AUTH_TIMEOUT_MS) || 120000,
-    qrMaxRetries: Number(process.env.WWEBJS_QR_MAX_RETRIES) || 3,
+    // Zero desativa o limite: o QR continua sendo renovado até a autenticação.
+    qrMaxRetries: resolverQrMaxRetries(),
     puppeteer: {
       headless: options.headless ?? false,
       executablePath: navegador || undefined,

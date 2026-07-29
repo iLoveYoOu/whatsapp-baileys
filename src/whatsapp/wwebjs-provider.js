@@ -122,10 +122,15 @@ function criarProvider(options = {}) {
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
         '--disable-gpu',
+        '--disable-software-rasterizer',
         '--no-first-run',
         '--no-zygote',
         '--disable-extensions',
-        '--disable-background-networking'
+        '--disable-background-networking',
+        '--disable-site-isolation-trials',
+        '--renderer-process-limit=1',
+        '--mute-audio',
+        '--disable-features=IsolateOrigins,site-per-process,Translate,BackForwardCache,MediaRouter'
       ]
     }
   });

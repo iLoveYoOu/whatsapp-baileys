@@ -30,7 +30,14 @@ if (!importBaileysEncontrado) {
 
 codigo = codigo.replace(
   importBaileysEncontrado,
-  `${importBaileysEncontrado}\n\nconst { criarProvider: criarWwebjsProvider } = require('./src/whatsapp/wwebjs-provider');\nconst WHATSAPP_PROVIDER = String(process.env.WHATSAPP_PROVIDER || 'baileys').toLowerCase();\nlet wwebjsProvider = null;`
+  `const WHATSAPP_PROVIDER = String(process.env.WHATSAPP_PROVIDER || 'baileys').toLowerCase();
+${importBaileysEncontrado.replace(
+    /require\(['"]@whiskeysockets\/baileys['"]\)/,
+    "(WHATSAPP_PROVIDER === 'baileys' ? require('@whiskeysockets/baileys') : require('./src/whatsapp/baileys-compat'))"
+  )}
+
+const { criarProvider: criarWwebjsProvider } = require('./src/whatsapp/wwebjs-provider');
+let wwebjsProvider = null;`
 );
 
 const assinaturaRegex = /async\s+function\s+conectarWhatsApp\s*\(\s*\)\s*\{/;

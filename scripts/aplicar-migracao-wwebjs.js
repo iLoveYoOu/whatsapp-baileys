@@ -188,10 +188,6 @@ codigo = codigo.replace(
   '    <meta http-equiv="refresh" content="10">\\n    <h2>Escaneie o QR</h2>'
 );
 
-const listenOriginal = `app.listen(PORT, () => {
-  console.log(\`Servidor rodando na porta \${PORT}\`);
-  conectarWhatsApp();
-});`;
 const listenSeguro = `app.listen(PORT, () => {
   console.log(\`Servidor rodando na porta \${PORT}\`);
   conectarWhatsApp().catch(erro => {
@@ -216,10 +212,11 @@ async function encerrarWhatsApp(sinal) {
 }
 process.once('SIGTERM', () => encerrarWhatsApp('SIGTERM'));
 process.once('SIGINT', () => encerrarWhatsApp('SIGINT'));`;
-if (!codigo.includes(listenOriginal)) {
+const listenRegex = /app\.listen\(\s*PORT\s*,\s*\(\)\s*=>\s*\{\s*console\.log\(\s*`Servidor rodando na porta \$\{PORT\}`\s*\);\s*conectarWhatsApp\(\s*\);\s*\}\s*\);/m;
+if (!listenRegex.test(codigo)) {
   throw new Error('Inicialização HTTP esperada não encontrada; nenhuma alteração foi gravada.');
 }
-codigo = codigo.replace(listenOriginal, listenSeguro);
+codigo = codigo.replace(listenRegex, listenSeguro);
 
 const downloadRegex = /const\s+buffer\s*=\s*await\s+baixarImagem\s*\(\s*msg\.message\s*\)\s*;/;
 if (!downloadRegex.test(codigo)) {

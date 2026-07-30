@@ -2437,7 +2437,6 @@ app.get('/status', (req, res) => {
 });
 
 app.get('/qr', async (req, res) => {
-  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
   if (!qrAtual) {
     return res.send(`
       <h3>Status: ${status}</h3>
@@ -2448,7 +2447,6 @@ app.get('/qr', async (req, res) => {
   const img = await QRCode.toDataURL(qrAtual);
 
   res.send(`
-    <meta http-equiv="refresh" content="10">
     <h2>Escaneie o QR</h2>
     <img src="${img}" style="width:320px;height:320px" />
   `);
@@ -2456,28 +2454,8 @@ app.get('/qr', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
-  conectarWhatsApp().catch(erro => {
-    status = 'erro_wwebjs';
-    console.error('[WHATSAPP] Falha fatal ao inicializar:', erro);
-    setTimeout(() => process.exit(1), 1000);
-  });
+  conectarWhatsApp();
 });
-
-let encerrandoWhatsApp = false;
-async function encerrarWhatsApp(sinal) {
-  if (encerrandoWhatsApp) return;
-  encerrandoWhatsApp = true;
-  console.log(`[WHATSAPP] Encerramento gracioso (${sinal}); persistindo sessão...`);
-  try {
-    if (wwebjsProvider) await wwebjsProvider.destroy();
-  } catch (erro) {
-    console.warn('[WHATSAPP] Falha ao encerrar provider:', erro.message);
-  } finally {
-    process.exit(0);
-  }
-}
-process.once('SIGTERM', () => encerrarWhatsApp('SIGTERM'));
-process.once('SIGINT', () => encerrarWhatsApp('SIGINT'));
 
 /* ARTAUTO - IntegraÃ§Ã£o Supabase */
 const artautoLock = { polling: false };

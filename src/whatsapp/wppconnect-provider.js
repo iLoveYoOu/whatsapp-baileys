@@ -158,10 +158,12 @@ function criarProvider(options = {}) {
         }
       };
       const confirmarReady = () => {
-        if (readyEmitted) return;
+        if (readyEmitted || !socketConnected || !interfaceReady) return;
         readyEmitted = true;
         emitter.emit('ready');
       };
+      let socketConnected = false;
+      let interfaceReady = false;
       const consultarNaoLidas = async () => {
         if (!client || pollingRunning) return;
         pollingRunning = true;
@@ -186,7 +188,15 @@ function criarProvider(options = {}) {
       client.onAnyMessage(raw => encaminharMensagem(raw, 'onAnyMessage'));
       client.onStateChange(estado => {
         emitter.emit('change_state', estado);
-        if (String(estado).toUpperCase() === 'CONNECTED') confirmarReady();
+        socketConnected = String(estado).toUpperCase() === 'CONNECTED';
+        confirmarReady();
+      });
+      client.onInterfaceChange(interfaceState => {
+        const mode = String(interfaceState?.mode || '').toUpperCase();
+        const displayInfo = String(interfaceState?.displayInfo || '').toUpperCase();
+        console.log(`[WPPCONNECT] Interface: ${mode} (${displayInfo})`);
+        interfaceReady = mode === 'MAIN' && displayInfo === 'NORMAL';
+        confirmarReady();
       });
       client.startPhoneWatchdog?.(30000);
       pollingTimer = setInterval(consultarNaoLidas, 2000);

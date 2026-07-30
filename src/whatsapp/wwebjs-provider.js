@@ -137,6 +137,9 @@ function criarProvider(options = {}) {
   let syncRecoveryTimer = null;
   let syncRecoveryRunning = false;
   let clientReady = false;
+  let messagePollingTimer = null;
+  let messagePollingRunning = false;
+  let messagePollingSince = Math.floor(Date.now() / 1000);
   const mensagensRecebidas = new Map();
   const cancelSyncRecovery = () => {
     if (syncRecoveryTimer) clearTimeout(syncRecoveryTimer);
@@ -148,6 +151,7 @@ function criarProvider(options = {}) {
   client.on('ready', () => {
     clientReady = true;
     cancelSyncRecovery();
+    iniciarPollingMensagens();
     emitter.emit('ready');
   });
   client.on('loading_screen', (percent, message) => {
@@ -194,6 +198,7 @@ function criarProvider(options = {}) {
   client.on('disconnected', motivo => {
     clientReady = false;
     cancelSyncRecovery();
+    cancelarPollingMensagens();
     if (client._injectAbort) client._injectAbort.abort();
     emitter.emit('disconnected', motivo);
   });
@@ -223,6 +228,58 @@ function criarProvider(options = {}) {
   // processar duas vezes quando os dois eventos funcionam normalmente.
   client.on('message', raw => encaminharMensagemRecebida(raw, 'message'));
   client.on('message_create', raw => encaminharMensagemRecebida(raw, 'message_create'));
+
+  const cancelarPollingMensagens = () => {
+    if (messagePollingTimer) clearTimeout(messagePollingTimer);
+    messagePollingTimer = null;
+    messagePollingRunning = false;
+  };
+
+  const executarPollingMensagens = async () => {
+    if (!clientReady || messagePollingRunning || !client.pupPage) return;
+    messagePollingRunning = true;
+    try {
+      const mensagens = await client.pupPage.evaluate(desde => {
+        const colecao =
+          window.Store?.Msg ||
+          window.require?.('WAWebCollections')?.Msg;
+        const modelos = colecao?.getModelsArray?.() || colecao?.models || [];
+        return modelos
+          .filter(msg => !msg?.id?.fromMe && Number(msg?.t || 0) >= desde)
+          .map(msg => ({
+            id: msg.id?._serialized || msg.id?.toString?.() || '',
+            timestamp: Number(msg.t || 0)
+          }))
+          .filter(item => item.id)
+          .sort((a, b) => a.timestamp - b.timestamp)
+          .slice(-100);
+      }, messagePollingSince);
+
+      for (const item of mensagens) {
+        messagePollingSince = Math.max(messagePollingSince, item.timestamp);
+        if (mensagensRecebidas.has(item.id)) continue;
+        const raw = await client.getMessageById(item.id);
+        if (raw) await encaminharMensagemRecebida(raw, 'polling');
+      }
+    } catch (erro) {
+      const mensagem = String(erro?.message || erro || '');
+      if (!mensagem.includes('Execution context was destroyed')) {
+        console.warn('[WWEBJS] Falha temporária ao consultar mensagens:', mensagem);
+      }
+    } finally {
+      messagePollingRunning = false;
+      if (clientReady) {
+        messagePollingTimer = setTimeout(executarPollingMensagens, 2000);
+      }
+    }
+  };
+
+  function iniciarPollingMensagens() {
+    cancelarPollingMensagens();
+    messagePollingSince = Math.floor(Date.now() / 1000) - 10;
+    console.log('[WWEBJS] Monitor complementar de mensagens ativado.');
+    messagePollingTimer = setTimeout(executarPollingMensagens, 500);
+  }
 
   async function initialize() {
     console.log('[WWEBJS] Inicialização do cliente...');
@@ -327,6 +384,7 @@ function criarProvider(options = {}) {
 
   async function destroy({ timeoutMs = 10000 } = {}) {
     cancelSyncRecovery();
+    cancelarPollingMensagens();
     if (client._injectAbort) client._injectAbort.abort();
     if (client.pupPage) client.pupPage.removeAllListeners('framenavigated');
     let timer;

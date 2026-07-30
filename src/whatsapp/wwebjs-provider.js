@@ -137,6 +137,7 @@ function criarProvider(options = {}) {
 
   let syncRecoveryTimer = null;
   let syncRecoveryRunning = false;
+  let clientReady = false;
   const cancelSyncRecovery = () => {
     if (syncRecoveryTimer) clearTimeout(syncRecoveryTimer);
     syncRecoveryTimer = null;
@@ -145,6 +146,7 @@ function criarProvider(options = {}) {
   client.on('qr', qr => emitter.emit('qr', qr));
   client.on('authenticated', () => emitter.emit('authenticated'));
   client.on('ready', () => {
+    clientReady = true;
     cancelSyncRecovery();
     emitter.emit('ready');
   });
@@ -156,7 +158,27 @@ function criarProvider(options = {}) {
       syncRecoveryTimer = null;
       syncRecoveryRunning = true;
       try {
-        console.warn('[WWEBJS] Sincronização parada em 99%; reinjetando módulos no mesmo navegador.');
+        if (clientReady) return;
+        console.warn('[WWEBJS] Sincronização parada em 99%; recuperando injeção parcial.');
+        const syncAlreadyCompleted = await client.pupPage.evaluate(() => {
+          const Socket = window.require('WAWebSocketModel').Socket;
+          if (Socket.hasSynced !== true) return false;
+
+          try {
+            delete window.WWebJS;
+          } catch (_) {
+            window.WWebJS = undefined;
+          }
+          window.onAppStateHasSyncedEvent();
+          return true;
+        });
+
+        if (syncAlreadyCompleted) {
+          console.log('[WWEBJS] hasSynced confirmado; callback oficial de ready reativado.');
+          return;
+        }
+
+        console.warn('[WWEBJS] hasSynced ainda falso; reinjetando módulos no mesmo navegador.');
         await client.inject();
         console.log('[WWEBJS] Reinjeção pós-sincronização concluída; aguardando ready.');
       } catch (error) {

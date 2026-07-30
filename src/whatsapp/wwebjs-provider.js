@@ -137,6 +137,7 @@ function criarProvider(options = {}) {
   let syncRecoveryTimer = null;
   let syncRecoveryRunning = false;
   let clientReady = false;
+  const mensagensRecebidas = new Map();
   const cancelSyncRecovery = () => {
     if (syncRecoveryTimer) clearTimeout(syncRecoveryTimer);
     syncRecoveryTimer = null;
@@ -196,13 +197,32 @@ function criarProvider(options = {}) {
     if (client._injectAbort) client._injectAbort.abort();
     emitter.emit('disconnected', motivo);
   });
-  client.on('message', async raw => {
+  const encaminharMensagemRecebida = async (raw, evento) => {
     try {
+      if (!raw || raw.fromMe) return;
+
+      const id = raw.id?._serialized || raw.id?.id || '';
+      const agora = Date.now();
+      for (const [idAntigo, recebidoEm] of mensagensRecebidas) {
+        if (agora - recebidoEm > 120000) mensagensRecebidas.delete(idAntigo);
+      }
+      if (id && mensagensRecebidas.has(id)) return;
+      if (id) mensagensRecebidas.set(id, agora);
+
+      console.log(
+        `[WWEBJS] Mensagem recebida (${evento}): ${id || 'sem-id'} de ${raw.from || 'origem-desconhecida'}`
+      );
       emitter.emit('message', await normalizarMensagem(raw));
     } catch (erro) {
       emitter.emit('error', erro);
     }
-  });
+  };
+
+  // Algumas versÃµes do WhatsApp Web deixam de emitir `message`, mas ainda
+  // entregam a mensagem recebida por `message_create`. A deduplicaÃ§Ã£o evita
+  // processar duas vezes quando os dois eventos funcionam normalmente.
+  client.on('message', raw => encaminharMensagemRecebida(raw, 'message'));
+  client.on('message_create', raw => encaminharMensagemRecebida(raw, 'message_create'));
 
   async function initialize() {
     console.log('[WWEBJS] Inicialização do cliente...');

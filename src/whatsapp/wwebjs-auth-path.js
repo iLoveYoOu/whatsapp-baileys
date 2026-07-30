@@ -87,7 +87,7 @@ function registrarDiagnosticoSessao(diagnostico, origem) {
   console.log('[WWEBJS][AUTH] Perfil esperado:', diagnostico.sessionPath);
 
   if (diagnostico.defaultExiste && (diagnostico.localStorageExiste || diagnostico.indexedDbExiste)) {
-    console.log('[WWEBJS][AUTH] Perfil Chromium persistido encontrado; o LocalAuth tentará reutilizá-lo.');
+    console.log('[WWEBJS][AUTH] Perfil Chromium encontrado; somente os eventos authenticated/ready confirmam uma sessão válida.');
     return;
   }
 

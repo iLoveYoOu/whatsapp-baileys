@@ -138,6 +138,9 @@ function criarProvider(options = {}) {
   client.on('qr', qr => emitter.emit('qr', qr));
   client.on('authenticated', () => emitter.emit('authenticated'));
   client.on('ready', () => emitter.emit('ready'));
+  client.on('loading_screen', (percent, message) =>
+    emitter.emit('loading_screen', percent, message));
+  client.on('change_state', state => emitter.emit('change_state', state));
   client.on('auth_failure', mensagem => emitter.emit('auth_failure', mensagem));
   client.on('disconnected', motivo => emitter.emit('disconnected', motivo));
   client.on('message', async raw => {

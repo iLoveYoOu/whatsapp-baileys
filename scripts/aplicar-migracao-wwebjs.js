@@ -100,7 +100,7 @@ async function conectarWhatsAppWwebjs() {
   };
 
   wwebjsProvider = criarWwebjsProvider({
-    headless: String(process.env.WWEBJS_HEADLESS || 'false').toLowerCase() === 'true'
+    headless: String(process.env.WWEBJS_HEADLESS || (process.env.RENDER ? 'true' : 'false')).toLowerCase() === 'true'
   });
   sock = wwebjsProvider;
 
@@ -112,8 +112,17 @@ async function conectarWhatsAppWwebjs() {
   });
   wwebjsProvider.on('authenticated', () => {
     cancelarRecuperacaoLogout();
+    qrAtual = '';
     status = 'autenticado';
     console.log('[WWEBJS] Sessão autenticada.');
+  });
+  wwebjsProvider.on('loading_screen', (percentual, mensagem) => {
+    const memoriaMb = Math.round(process.memoryUsage().rss / 1024 / 1024);
+    status = 'sincronizando';
+    console.log(\`[WWEBJS] Sincronizando: \${percentual}% \${mensagem || ''} (RSS: \${memoriaMb} MB)\`);
+  });
+  wwebjsProvider.on('change_state', estado => {
+    console.log('[WWEBJS] Estado interno:', estado);
   });
   wwebjsProvider.on('ready', () => {
     cancelarRecuperacaoLogout();
@@ -169,6 +178,48 @@ async function conectarWhatsApp() {
 `;
 
 codigo = codigo.replace(ancoraMatch, `${novoTransporte}${ancoraMatch}`);
+
+codigo = codigo.replace(
+  "app.get('/qr', async (req, res) => {\n",
+  "app.get('/qr', async (req, res) => {\n  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');\n"
+);
+codigo = codigo.replace(
+  '    <h2>Escaneie o QR</h2>',
+  '    <meta http-equiv="refresh" content="10">\\n    <h2>Escaneie o QR</h2>'
+);
+
+const listenOriginal = `app.listen(PORT, () => {
+  console.log(\`Servidor rodando na porta \${PORT}\`);
+  conectarWhatsApp();
+});`;
+const listenSeguro = `app.listen(PORT, () => {
+  console.log(\`Servidor rodando na porta \${PORT}\`);
+  conectarWhatsApp().catch(erro => {
+    status = 'erro_wwebjs';
+    console.error('[WHATSAPP] Falha fatal ao inicializar:', erro);
+    setTimeout(() => process.exit(1), 1000);
+  });
+});
+
+let encerrandoWhatsApp = false;
+async function encerrarWhatsApp(sinal) {
+  if (encerrandoWhatsApp) return;
+  encerrandoWhatsApp = true;
+  console.log(\`[WHATSAPP] Encerramento gracioso (\${sinal}); persistindo sessão...\`);
+  try {
+    if (wwebjsProvider) await wwebjsProvider.destroy();
+  } catch (erro) {
+    console.warn('[WHATSAPP] Falha ao encerrar provider:', erro.message);
+  } finally {
+    process.exit(0);
+  }
+}
+process.once('SIGTERM', () => encerrarWhatsApp('SIGTERM'));
+process.once('SIGINT', () => encerrarWhatsApp('SIGINT'));`;
+if (!codigo.includes(listenOriginal)) {
+  throw new Error('Inicialização HTTP esperada não encontrada; nenhuma alteração foi gravada.');
+}
+codigo = codigo.replace(listenOriginal, listenSeguro);
 
 const downloadRegex = /const\s+buffer\s*=\s*await\s+baixarImagem\s*\(\s*msg\.message\s*\)\s*;/;
 if (!downloadRegex.test(codigo)) {

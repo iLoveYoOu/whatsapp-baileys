@@ -185,9 +185,16 @@ function criarProvider(options = {}) {
           emitter.emit('error', erro);
         }
       };
+      const pararPolling = () => {
+        if (!pollingTimer) return;
+        clearInterval(pollingTimer);
+        pollingTimer = null;
+        console.log('[WPPCONNECT] Polling auxiliar encerrado; eventos em tempo real ativos.');
+      };
       const confirmarReady = () => {
         if (readyEmitted || !socketConnected || !interfaceReady) return;
         readyEmitted = true;
+        pararPolling();
         emitter.emit('ready');
       };
       let socketConnected = false;
@@ -197,7 +204,7 @@ function criarProvider(options = {}) {
         pollingRunning = true;
         try {
           const mensagens = await client.getAllUnreadMessages();
-          for (const raw of (mensagens || []).slice(-100)) {
+          for (const raw of (mensagens || []).slice(-25)) {
             const timestamp = Number(raw?.t || raw?.timestamp || 0);
             if (timestamp && timestamp < iniciadoEm - 60) continue;
             encaminharMensagem(raw, 'não-lidas');
@@ -227,8 +234,10 @@ function criarProvider(options = {}) {
         confirmarReady();
       });
       client.startPhoneWatchdog?.(30000);
-      pollingTimer = setInterval(consultarNaoLidas, 2000);
       await consultarNaoLidas();
+      if (!readyEmitted) {
+        pollingTimer = setInterval(consultarNaoLidas, 15000);
+      }
       emitter.emit('authenticated');
     } catch (erro) {
       client = null;

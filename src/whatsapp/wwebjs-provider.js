@@ -186,7 +186,12 @@ function criarProvider(options = {}) {
   });
   client.on('change_state', state => emitter.emit('change_state', state));
   client.on('auth_failure', mensagem => emitter.emit('auth_failure', mensagem));
-  client.on('disconnected', motivo => emitter.emit('disconnected', motivo));
+  client.on('disconnected', motivo => {
+    clientReady = false;
+    cancelSyncRecovery();
+    if (client._injectAbort) client._injectAbort.abort();
+    emitter.emit('disconnected', motivo);
+  });
   client.on('message', async raw => {
     try {
       emitter.emit('message', await normalizarMensagem(raw));
@@ -298,6 +303,8 @@ function criarProvider(options = {}) {
 
   async function destroy({ timeoutMs = 10000 } = {}) {
     cancelSyncRecovery();
+    if (client._injectAbort) client._injectAbort.abort();
+    if (client.pupPage) client.pupPage.removeAllListeners('framenavigated');
     let timer;
     try {
       await Promise.race([

@@ -51,7 +51,7 @@ module.exports = { exposeFunctionIfAbsent };
 
 let clientAtual = fs.readFileSync(clientPath, 'utf8');
 if (!clientAtual.includes(MARCADOR_INJECT)) {
-  const ancora = /^([ \t]*)await this\.inject\(\);\r?\n\1this\.pupPage\.on\(['"]framenavigated['"]/m;
+  const ancora = /^([ \t]*)await this\.inject\(\);\r?\n(?:[ \t]*\r?\n)*\1this\.pupPage\.on\(['"]framenavigated['"]/m;
   const correspondencia = clientAtual.match(ancora);
   if (!correspondencia) {
     throw new Error('[PATCH-WWEBJS] Ponto de injeção esperado não encontrado em Client.js.');

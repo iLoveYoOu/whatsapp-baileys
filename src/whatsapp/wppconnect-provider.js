@@ -136,9 +136,11 @@ function criarProvider(options = {}) {
         }
       });
 
-      const encaminharMensagem = raw => {
+      const encaminharMensagem = (raw, origem) => {
         if (!raw || raw.fromMe) return;
         try {
+          const timestamp = Number(raw?.t || raw?.timestamp || 0);
+          if (timestamp && timestamp < iniciadoEm - 60) return;
           const msg = normalizarMensagem(raw);
           const id = msg.key.id;
           const agora = Date.now();
@@ -147,7 +149,9 @@ function criarProvider(options = {}) {
           }
           if (id && mensagensProcessadas.has(id)) return;
           if (id) mensagensProcessadas.set(id, agora);
-          console.log(`[WPPCONNECT] Mensagem recebida: ${msg.key.id || 'sem-id'} de ${msg.key.remoteJid}`);
+          console.log(
+            `[WPPCONNECT] Mensagem recebida (${origem}): ${msg.key.id || 'sem-id'} de ${msg.key.remoteJid}`
+          );
           emitter.emit('message', msg);
         } catch (erro) {
           emitter.emit('error', erro);
@@ -166,7 +170,7 @@ function criarProvider(options = {}) {
           for (const raw of (mensagens || []).slice(-100)) {
             const timestamp = Number(raw?.t || raw?.timestamp || 0);
             if (timestamp && timestamp < iniciadoEm - 60) continue;
-            encaminharMensagem(raw);
+            encaminharMensagem(raw, 'não-lidas');
           }
         } catch (erro) {
           const mensagem = String(erro?.message || erro || '');
@@ -178,7 +182,8 @@ function criarProvider(options = {}) {
         }
       };
 
-      client.onMessage(encaminharMensagem);
+      client.onMessage(raw => encaminharMensagem(raw, 'onMessage'));
+      client.onAnyMessage(raw => encaminharMensagem(raw, 'onAnyMessage'));
       client.onStateChange(estado => {
         emitter.emit('change_state', estado);
         if (String(estado).toUpperCase() === 'CONNECTED') confirmarReady();
@@ -187,7 +192,6 @@ function criarProvider(options = {}) {
       pollingTimer = setInterval(consultarNaoLidas, 2000);
       await consultarNaoLidas();
       emitter.emit('authenticated');
-      if (await client.isConnected().catch(() => false)) confirmarReady();
     } catch (erro) {
       client = null;
       emitter.emit('error', erro);

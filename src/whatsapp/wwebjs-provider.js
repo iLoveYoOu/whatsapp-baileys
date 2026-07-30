@@ -221,8 +221,21 @@ function criarProvider(options = {}) {
     return Buffer.from(media.data, 'base64');
   }
 
-  async function destroy() {
-    await client.destroy();
+  async function destroy({ timeoutMs = 10000 } = {}) {
+    let timer;
+    try {
+      await Promise.race([
+        client.destroy(),
+        new Promise((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error(`Tempo limite de ${timeoutMs} ms ao encerrar Chromium`)),
+            timeoutMs
+          );
+        })
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   }
 
   return {

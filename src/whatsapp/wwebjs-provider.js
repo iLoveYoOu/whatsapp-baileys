@@ -162,7 +162,8 @@ function criarProvider(options = {}) {
         console.warn('[WWEBJS] Sincronização parada em 99%; recuperando injeção parcial.');
         const syncAlreadyCompleted = await client.pupPage.evaluate(() => {
           const Socket = window.require('WAWebSocketModel').Socket;
-          if (Socket.hasSynced !== true) return false;
+          const connected = String(Socket.state || '').toUpperCase() === 'CONNECTED';
+          if (Socket.hasSynced !== true && !connected) return false;
 
           try {
             delete window.WWebJS;
@@ -174,7 +175,7 @@ function criarProvider(options = {}) {
         });
 
         if (syncAlreadyCompleted) {
-          console.log('[WWEBJS] hasSynced confirmado; callback oficial de ready reativado.');
+          console.log('[WWEBJS] Estado conectado confirmado; callback oficial de ready reativado.');
           return;
         }
 

@@ -163,8 +163,27 @@ function criarProvider(options = {}) {
       if (!navigationRace) throw error;
 
       console.warn(
-        '[WWEBJS] Navegação durante a injeção inicial; aguardando a reinjeção automática do cliente.'
+        '[WWEBJS] Navegação durante a injeção inicial; repetindo no mesmo navegador.'
       );
+
+      let lastError = error;
+      for (let attempt = 1; attempt <= 5; attempt += 1) {
+        await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+        try {
+          await client.inject();
+          console.log(`[WWEBJS] Reinjeção ${attempt}/5 concluída.`);
+          return;
+        } catch (retryError) {
+          lastError = retryError;
+          const retryMessage = String(retryError?.message || retryError || '');
+          const retryable =
+            retryMessage.includes('Execution context was destroyed') ||
+            retryMessage.includes('Cannot find context with specified id');
+          if (!retryable) throw retryError;
+          console.warn(`[WWEBJS] Reinjeção ${attempt}/5 interrompida por navegação.`);
+        }
+      }
+      throw lastError;
     }
   }
 

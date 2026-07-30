@@ -27,6 +27,8 @@ test('aplica o patch de binding de forma idempotente', () => {
     assert.equal(firstRun.status, 0, firstRun.stderr);
     const firstContent = fs.readFileSync(utilPath, 'utf8');
     assert.match(firstContent, /WWEBJS_BINDING_RACE_PATCH/);
+    assert.doesNotMatch(firstContent, /page\.evaluate/);
+    assert.match(firstContent, /await page\.exposeFunction/);
 
     const secondRun = runPatch();
     assert.equal(secondRun.status, 0, secondRun.stderr);

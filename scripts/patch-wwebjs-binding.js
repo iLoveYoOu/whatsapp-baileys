@@ -26,10 +26,6 @@ const patchedSource = `'use strict';
 
 // ${PATCH_MARKER}
 async function exposeFunctionIfAbsent(page, name, fn) {
-  const existsOnPage = await page.evaluate(bindingName =>
-    typeof window[bindingName] === 'function', name);
-  if (existsOnPage) return;
-
   try {
     await page.exposeFunction(name, fn);
   } catch (error) {

@@ -140,6 +140,7 @@ function criarProvider(options = {}) {
   let messagePollingTimer = null;
   let messagePollingRunning = false;
   let messagePollingSince = Math.floor(Date.now() / 1000);
+  let messagePollingCycles = 0;
   const mensagensRecebidas = new Map();
   const cancelSyncRecovery = () => {
     if (syncRecoveryTimer) clearTimeout(syncRecoveryTimer);
@@ -243,18 +244,72 @@ function criarProvider(options = {}) {
         const colecao =
           window.Store?.Msg ||
           window.require?.('WAWebCollections')?.Msg;
-        const modelos = colecao?.getModelsArray?.() || colecao?.models || [];
-        return modelos
-          .filter(msg => !msg?.id?.fromMe && Number(msg?.t || 0) >= desde)
-          .map(msg => ({
-            id: msg.id?._serialized || msg.id?.toString?.() || '',
-            timestamp: Number(msg.t || 0)
-          }))
-          .filter(item => item.id)
+        const modelos =
+          colecao?.getModelsArray?.() ||
+          colecao?.models ||
+          colecao?._models ||
+          [];
+        const agora = Math.floor(Date.now() / 1000);
+        const encontrados = new Map();
+        const timestamp = msg => {
+          const valor = msg?.t;
+          if (typeof valor === 'number') return valor;
+          if (typeof valor?.unix === 'function') return Number(valor.unix()) || 0;
+          return Number(valor) || 0;
+        };
+        const adicionar = (msg, forcar = false) => {
+          if (!msg || msg.id?.fromMe) return;
+          const id = msg.id?._serialized || msg.id?.toString?.() || '';
+          const ts = timestamp(msg);
+          const recente = ts >= desde || (ts > 0 && agora - ts < 120);
+          const nova = msg.isNewMsg || msg.isNew || msg.isUnread;
+          if (id && (forcar || recente || nova)) {
+            encontrados.set(id, { id, timestamp: ts || agora });
+          }
+        };
+
+        modelos.slice(-100).forEach(msg => adicionar(msg));
+
+        const chats =
+          window.Store?.Chat?.getModelsArray?.() ||
+          window.Store?.Chat?.models ||
+          window.Store?.Chat?._models ||
+          [];
+        for (const chat of chats) {
+          const naoLidas = Number(chat?.unreadCount || 0) > 0 || chat?.hasUnread;
+          const ultimaId =
+            chat?.lastReceivedKey?._serialized ||
+            chat?.lastReceivedKey?.toString?.() ||
+            '';
+          const mensagensChat =
+            chat?.msgs?.getModelsArray?.() ||
+            chat?.msgs?.models ||
+            chat?.msgs?._models ||
+            [];
+          mensagensChat.slice(-50).forEach(msg => {
+            const id = msg?.id?._serialized || msg?.id?.toString?.() || '';
+            adicionar(msg, Boolean(naoLidas && id === ultimaId));
+          });
+          if (ultimaId) {
+            const ultima = colecao?.get?.(ultimaId);
+            if (ultima) adicionar(ultima, true);
+            else if (!encontrados.has(ultimaId) && naoLidas) {
+              encontrados.set(ultimaId, { id: ultimaId, timestamp: agora });
+            }
+          }
+        }
+
+        return Array.from(encontrados.values())
           .sort((a, b) => a.timestamp - b.timestamp)
           .slice(-100);
       }, messagePollingSince);
 
+      messagePollingCycles += 1;
+      if (messagePollingCycles === 1 || messagePollingCycles % 15 === 0) {
+        console.log(
+          `[WWEBJS] Monitor de mensagens ativo: ${mensagens.length} candidato(s) recente(s).`
+        );
+      }
       for (const item of mensagens) {
         messagePollingSince = Math.max(messagePollingSince, item.timestamp);
         if (mensagensRecebidas.has(item.id)) continue;

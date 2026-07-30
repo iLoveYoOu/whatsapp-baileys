@@ -153,7 +153,19 @@ function criarProvider(options = {}) {
 
   async function initialize() {
     console.log('[WWEBJS] Inicialização do cliente...');
-    await client.initialize();
+    try {
+      await client.initialize();
+    } catch (error) {
+      const message = String(error?.message || error || '');
+      const navigationRace =
+        message.includes('Execution context was destroyed') ||
+        message.includes('Cannot find context with specified id');
+      if (!navigationRace) throw error;
+
+      console.warn(
+        '[WWEBJS] Navegação durante a injeção inicial; aguardando a reinjeção automática do cliente.'
+      );
+    }
   }
 
   async function sendMessage(jid, payload = {}, optionsEnvio = {}) {

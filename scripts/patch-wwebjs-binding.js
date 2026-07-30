@@ -5,11 +5,9 @@ const packageRoot = process.env.WWEBJS_PACKAGE_ROOT ||
   path.join(process.cwd(), 'node_modules', 'whatsapp-web.js');
 const packageJsonPath = path.join(packageRoot, 'package.json');
 const puppeteerUtilPath = path.join(packageRoot, 'src', 'util', 'Puppeteer.js');
-const clientPath = path.join(packageRoot, 'src', 'Client.js');
 const PATCH_MARKER = 'WWEBJS_BINDING_RACE_PATCH';
-const NAVIGATION_PATCH_MARKER = 'WWEBJS_ABORTED_INJECT_PATCH';
 
-if (!fs.existsSync(packageJsonPath) || !fs.existsSync(puppeteerUtilPath) || !fs.existsSync(clientPath)) {
+if (!fs.existsSync(packageJsonPath) || !fs.existsSync(puppeteerUtilPath)) {
   throw new Error('[PATCH-WWEBJS] Instalação do whatsapp-web.js não encontrada.');
 }
 
@@ -44,20 +42,4 @@ module.exports = { exposeFunctionIfAbsent };
 
   fs.writeFileSync(puppeteerUtilPath, patchedSource, 'utf8');
   console.log('[PATCH-WWEBJS] Corrida de registro de bindings corrigida.');
-}
-
-let clientSource = fs.readFileSync(clientPath, 'utf8');
-if (!clientSource.includes(NAVIGATION_PATCH_MARKER)) {
-  const abortedInject = 'if (abort.signal.aborted) throw err;';
-  if (!clientSource.includes(abortedInject)) {
-    throw new Error('[PATCH-WWEBJS] Tratamento de inject abortado não encontrado em Client.js.');
-  }
-  clientSource = clientSource.replace(
-    abortedInject,
-    `if (abort.signal.aborted) return; // ${NAVIGATION_PATCH_MARKER}`
-  );
-  fs.writeFileSync(clientPath, clientSource, 'utf8');
-  console.log('[PATCH-WWEBJS] Navegação inicial não derruba mais initialize().');
-} else {
-  console.log('[PATCH-WWEBJS] Correção de navegação inicial já aplicada.');
 }

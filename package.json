@@ -4,16 +4,16 @@
   "description": "WhatsApp Baileys gratuito integrado ao Google Sheets",
   "main": "server.js",
   "scripts": {
-    "prestart": "node patch-baileys-reconnect.js && node scripts/patch-wwebjs-binding.js && node scripts/aplicar-migracao-wwebjs.js && node scripts/corrigir-lock-wwebjs.js",
     "start": "node server.js",
     "test:wwebjs": "node scripts/testar-whatsapp-web.js",
-    "test:wwebjs-auth": "node --test test/baileys-compat.test.js test/wwebjs-auth-path.test.js test/wwebjs-binding-patch.test.js test/wwebjs-lock-cleanup.test.js"
+    "test:wwebjs-auth": "node --test test/baileys-compat.test.js test/wwebjs-auth-path.test.js test/wwebjs-binding-patch.test.js test/wwebjs-lock-cleanup.test.js test/wppconnect-provider.test.js"
   },
   "engines": {
     "node": "20.x"
   },
   "dependencies": {
     "@hapi/boom": "latest",
+    "@wppconnect-team/wppconnect": "2.2.5",
     "@whiskeysockets/baileys": "6.7.22",
     "axios": "^1.17.0",
     "dotenv": "latest",

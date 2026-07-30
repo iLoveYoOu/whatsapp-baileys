@@ -69,6 +69,11 @@ function criarProvider(options = {}) {
   const executablePath = localizarChrome();
   let client = null;
   let initializing = false;
+  let readyEmitted = false;
+  let pollingTimer = null;
+  let pollingRunning = false;
+  const iniciadoEm = Math.floor(Date.now() / 1000);
+  const mensagensProcessadas = new Map();
 
   fs.mkdirSync(tokenPath, { recursive: true });
   fs.mkdirSync(userDataDir, { recursive: true });
@@ -131,20 +136,58 @@ function criarProvider(options = {}) {
         }
       });
 
-      client.onMessage(raw => {
+      const encaminharMensagem = raw => {
         if (!raw || raw.fromMe) return;
         try {
           const msg = normalizarMensagem(raw);
+          const id = msg.key.id;
+          const agora = Date.now();
+          for (const [idAntigo, recebidoEm] of mensagensProcessadas) {
+            if (agora - recebidoEm > 10 * 60 * 1000) mensagensProcessadas.delete(idAntigo);
+          }
+          if (id && mensagensProcessadas.has(id)) return;
+          if (id) mensagensProcessadas.set(id, agora);
           console.log(`[WPPCONNECT] Mensagem recebida: ${msg.key.id || 'sem-id'} de ${msg.key.remoteJid}`);
           emitter.emit('message', msg);
         } catch (erro) {
           emitter.emit('error', erro);
         }
+      };
+      const confirmarReady = () => {
+        if (readyEmitted) return;
+        readyEmitted = true;
+        emitter.emit('ready');
+      };
+      const consultarNaoLidas = async () => {
+        if (!client || pollingRunning) return;
+        pollingRunning = true;
+        try {
+          const mensagens = await client.getAllUnreadMessages();
+          for (const raw of (mensagens || []).slice(-100)) {
+            const timestamp = Number(raw?.t || raw?.timestamp || 0);
+            if (timestamp && timestamp < iniciadoEm - 60) continue;
+            encaminharMensagem(raw);
+          }
+        } catch (erro) {
+          const mensagem = String(erro?.message || erro || '');
+          if (!mensagem.includes('not connected')) {
+            console.warn('[WPPCONNECT] Consulta de mensagens não lidas falhou:', mensagem);
+          }
+        } finally {
+          pollingRunning = false;
+        }
+      };
+
+      client.onMessage(encaminharMensagem);
+      client.onStateChange(estado => {
+        emitter.emit('change_state', estado);
+        if (String(estado).toUpperCase() === 'CONNECTED') confirmarReady();
       });
-      client.onStateChange(estado => emitter.emit('change_state', estado));
       client.startPhoneWatchdog?.(30000);
+      pollingTimer = setInterval(consultarNaoLidas, 2000);
+      await consultarNaoLidas();
       emitter.emit('authenticated');
-      emitter.emit('ready');
+      if (await client.isConnected().catch(() => false)) confirmarReady();
     } catch (erro) {
       client = null;
       emitter.emit('error', erro);
@@ -234,6 +277,8 @@ function criarProvider(options = {}) {
   }
 
   async function destroy() {
+    if (pollingTimer) clearInterval(pollingTimer);
+    pollingTimer = null;
     if (!client) return;
     client.stopPhoneWatchdog?.();
     await client.close();

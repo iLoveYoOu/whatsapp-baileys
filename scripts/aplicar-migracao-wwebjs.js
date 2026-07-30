@@ -118,6 +118,7 @@ async function conectarWhatsAppWwebjs() {
   });
   wwebjsProvider.on('loading_screen', (percentual, mensagem) => {
     const memoriaMb = Math.round(process.memoryUsage().rss / 1024 / 1024);
+    if (Number(percentual) >= 99) qrAtual = '';
     status = 'sincronizando';
     console.log(\`[WWEBJS] Sincronizando: \${percentual}% \${mensagem || ''} (RSS: \${memoriaMb} MB)\`);
   });

@@ -135,11 +135,37 @@ function criarProvider(options = {}) {
     }
   });
 
+  let syncRecoveryTimer = null;
+  let syncRecoveryRunning = false;
+  const cancelSyncRecovery = () => {
+    if (syncRecoveryTimer) clearTimeout(syncRecoveryTimer);
+    syncRecoveryTimer = null;
+  };
+
   client.on('qr', qr => emitter.emit('qr', qr));
   client.on('authenticated', () => emitter.emit('authenticated'));
-  client.on('ready', () => emitter.emit('ready'));
-  client.on('loading_screen', (percent, message) =>
-    emitter.emit('loading_screen', percent, message));
+  client.on('ready', () => {
+    cancelSyncRecovery();
+    emitter.emit('ready');
+  });
+  client.on('loading_screen', (percent, message) => {
+    emitter.emit('loading_screen', percent, message);
+
+    if (Number(percent) < 99 || syncRecoveryTimer || syncRecoveryRunning) return;
+    syncRecoveryTimer = setTimeout(async () => {
+      syncRecoveryTimer = null;
+      syncRecoveryRunning = true;
+      try {
+        console.warn('[WWEBJS] Sincronização parada em 99%; reinjetando módulos no mesmo navegador.');
+        await client.inject();
+        console.log('[WWEBJS] Reinjeção pós-sincronização concluída; aguardando ready.');
+      } catch (error) {
+        emitter.emit('error', error);
+      } finally {
+        syncRecoveryRunning = false;
+      }
+    }, Number(process.env.WWEBJS_SYNC_RECOVERY_MS) || 15000);
+  });
   client.on('change_state', state => emitter.emit('change_state', state));
   client.on('auth_failure', mensagem => emitter.emit('auth_failure', mensagem));
   client.on('disconnected', motivo => emitter.emit('disconnected', motivo));
@@ -253,6 +279,7 @@ function criarProvider(options = {}) {
   }
 
   async function destroy({ timeoutMs = 10000 } = {}) {
+    cancelSyncRecovery();
     let timer;
     try {
       await Promise.race([

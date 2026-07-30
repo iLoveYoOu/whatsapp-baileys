@@ -25,9 +25,18 @@ function idSerializado(id) {
 }
 
 function normalizarMensagem(raw) {
-  const remoto = jidParaBaileys(raw.from || raw.chatId || raw.to);
+  const remoto = jidParaBaileys(
+    raw.fromMe
+      ? (raw.to || raw.chatId || raw.from)
+      : (raw.from || raw.chatId || raw.to)
+  );
   const participante = jidParaBaileys(raw.author || raw.sender?.id);
   const texto = raw.body || raw.caption || raw.content || '';
+  const textoCitado =
+    raw.quotedMsgObj?.body ||
+    raw.quotedMsgObj?.caption ||
+    raw.quotedMsgObj?.content ||
+    '';
   const message = {};
 
   if (raw.type === 'image') message.imageMessage = { caption: texto };
@@ -36,7 +45,12 @@ function normalizarMensagem(raw) {
   else if (raw.quotedMsgId) {
     message.extendedTextMessage = {
       text: texto,
-      contextInfo: { stanzaId: idSerializado(raw.quotedMsgId) }
+      contextInfo: {
+        stanzaId: idSerializado(raw.quotedMsgId),
+        quotedMessage: textoCitado
+          ? { conversation: textoCitado }
+          : undefined
+      }
     };
   } else {
     message.conversation = texto;
@@ -136,11 +150,25 @@ function criarProvider(options = {}) {
         }
       });
 
-      const encaminharMensagem = (raw, origem) => {
-        if (!raw || raw.fromMe) return;
+      const encaminharMensagem = async (raw, origem) => {
+        if (!raw) return;
         try {
           const timestamp = Number(raw?.t || raw?.timestamp || 0);
           if (timestamp && timestamp < iniciadoEm - 60) return;
+
+          if (raw.quotedMsgId && !raw.quotedMsgObj) {
+            try {
+              raw.quotedMsgObj = await client.getMessageById(
+                idSerializado(raw.quotedMsgId)
+              );
+            } catch (erro) {
+              console.warn(
+                '[WPPCONNECT] Não foi possível carregar a mensagem citada:',
+                String(erro?.message || erro)
+              );
+            }
+          }
+
           const msg = normalizarMensagem(raw);
           const id = msg.key.id;
           const agora = Date.now();

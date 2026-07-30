@@ -11,7 +11,7 @@ const {
 const express = require('express');
 const QRCode = require('qrcode');
 const pino = require('pino');
-const { google } = require('googleapis');
+let googleApi = null;
 
 const {
   default: makeWASocket,
@@ -616,6 +616,9 @@ function dividirBlocos(texto) {
 }
 
 function authSheets() {
+  if (!googleApi) {
+    ({ google: googleApi } = require('googleapis'));
+  }
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   let key = process.env.GOOGLE_PRIVATE_KEY;
 
@@ -625,13 +628,13 @@ function authSheets() {
 
   key = key.replace(/\\n/g, '\n');
 
-  const auth = new google.auth.JWT({
+  const auth = new googleApi.auth.JWT({
     email,
     key,
     scopes: ['https://www.googleapis.com/auth/spreadsheets']
   });
 
-  return google.sheets({ version: 'v4', auth });
+  return googleApi.sheets({ version: 'v4', auth });
 }
 
 async function garantirAba(sheets, aba) {

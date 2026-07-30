@@ -11,7 +11,6 @@ const {
 const express = require('express');
 const QRCode = require('qrcode');
 const pino = require('pino');
-let googleApi = null;
 
 const {
   default: makeWASocket,
@@ -615,10 +614,22 @@ function dividirBlocos(texto) {
   return partes.length ? partes : [String(texto || '')];
 }
 
-function authSheets() {
-  if (!googleApi) {
-    ({ google: googleApi } = require('googleapis'));
+let googleAccessToken = '';
+let googleAccessTokenExpiraEm = 0;
+
+function base64Url(valor) {
+  return Buffer.from(valor)
+    .toString('base64')
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
+}
+
+async function obterGoogleAccessToken() {
+  if (googleAccessToken && Date.now() < googleAccessTokenExpiraEm) {
+    return googleAccessToken;
   }
+
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   let key = process.env.GOOGLE_PRIVATE_KEY;
 
@@ -627,14 +638,73 @@ function authSheets() {
   }
 
   key = key.replace(/\\n/g, '\n');
+  const agora = Math.floor(Date.now() / 1000);
+  const header = base64Url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+  const payload = base64Url(JSON.stringify({
+    iss: email,
+    scope: 'https://www.googleapis.com/auth/spreadsheets',
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: agora,
+    exp: agora + 3600
+  }));
+  const unsigned = `${header}.${payload}`;
+  const signature = crypto
+    .sign('RSA-SHA256', Buffer.from(unsigned), key)
+    .toString('base64')
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
 
-  const auth = new googleApi.auth.JWT({
-    email,
-    key,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets']
+  const body = new URLSearchParams({
+    grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+    assertion: `${unsigned}.${signature}`
+  });
+  const response = await axios.post('https://oauth2.googleapis.com/token', body.toString(), {
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
   });
 
-  return googleApi.sheets({ version: 'v4', auth });
+  googleAccessToken = response.data.access_token;
+  googleAccessTokenExpiraEm = Date.now() + (Number(response.data.expires_in || 3600) - 60) * 1000;
+  return googleAccessToken;
+}
+
+async function googleSheetsRequest(method, caminho, { params, data } = {}) {
+  const token = await obterGoogleAccessToken();
+  return axios({
+    method,
+    url: `https://sheets.googleapis.com/v4/${caminho}`,
+    params,
+    data,
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+function authSheets() {
+  return {
+    spreadsheets: {
+      get: ({ spreadsheetId }) =>
+        googleSheetsRequest('GET', `spreadsheets/${encodeURIComponent(spreadsheetId)}`),
+      batchUpdate: ({ spreadsheetId, requestBody }) =>
+        googleSheetsRequest(
+          'POST',
+          `spreadsheets/${encodeURIComponent(spreadsheetId)}:batchUpdate`,
+          { data: requestBody }
+        ),
+      values: {
+        get: ({ spreadsheetId, range }) =>
+          googleSheetsRequest(
+            'GET',
+            `spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(range)}`
+          ),
+        update: ({ spreadsheetId, range, valueInputOption, requestBody }) =>
+          googleSheetsRequest(
+            'PUT',
+            `spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(range)}`,
+            { params: { valueInputOption }, data: requestBody }
+          )
+      }
+    }
+  };
 }
 
 async function garantirAba(sheets, aba) {

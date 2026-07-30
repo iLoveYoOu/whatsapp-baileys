@@ -18,7 +18,6 @@
     "axios": "^1.17.0",
     "dotenv": "latest",
     "express": "latest",
-    "googleapis": "latest",
     "pino": "latest",
     "qrcode": "latest",
     "whatsapp-web.js": "github:wwebjs/whatsapp-web.js#1780711a1c86dfeca7c5ba6a66f950eac93dde28"

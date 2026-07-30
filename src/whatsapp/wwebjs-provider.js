@@ -124,7 +124,10 @@ function criarProvider(options = {}) {
         '--disable-gpu',
         '--disable-software-rasterizer',
         '--no-first-run',
+        '--no-zygote',
         '--disable-extensions',
+        '--disable-site-isolation-trials',
+        '--renderer-process-limit=1',
         '--mute-audio'
       ]
     }

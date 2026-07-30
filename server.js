@@ -1267,6 +1267,42 @@ Limite: 2 fotos por banca`
 
     return true;
   }
+
+  // Consulta sem alteração de dados: funciona também fora do contexto admin.
+  // Inclusão e remoção continuam protegidas pela validação abaixo.
+  if (comando === '/listblacklist') {
+    const lista = carregarBlacklist();
+
+    if (!lista.length) {
+      await sock.sendMessage(remetente, {
+        text: '✅ A blacklist está vazia.'
+      });
+
+      return true;
+    }
+
+    const linhas = lista.map((item, index) => {
+      const data = item.data
+        ? new Date(item.data).toLocaleDateString('pt-BR', {
+            timeZone: 'America/Sao_Paulo'
+          })
+        : 'Sem data';
+
+      return `${index + 1}. ${item.nome}\n   Data: ${data}`;
+    });
+
+    await sock.sendMessage(remetente, {
+      text:
+`🚫 BLACKLIST PIX
+
+${linhas.join('\n\n')}
+
+Total: ${lista.length}`
+    });
+
+    return true;
+  }
+
   if (!isAdmin) return false;
 
   if (comando.startsWith('/consultarid')) {
@@ -1479,39 +1515,6 @@ Limite: 2 fotos por banca`
 👤 ${nome}
 
 Novos Pix com esse nome receberão alerta automático.`
-    });
-
-    return true;
-  }
-
-  if (comando === '/listblacklist') {
-    const lista = carregarBlacklist();
-
-    if (!lista.length) {
-      await sock.sendMessage(remetente, {
-        text: '✅ A blacklist está vazia.'
-      });
-
-      return true;
-    }
-
-    const linhas = lista.map((item, index) => {
-      const data = item.data
-        ? new Date(item.data).toLocaleDateString('pt-BR', {
-            timeZone: 'America/Sao_Paulo'
-          })
-        : 'Sem data';
-
-      return `${index + 1}. ${item.nome}\n   Data: ${data}`;
-    });
-
-    await sock.sendMessage(remetente, {
-      text:
-`🚫 BLACKLIST PIX
-
-${linhas.join('\n\n')}
-
-Total: ${lista.length}`
     });
 
     return true;

@@ -5,9 +5,11 @@ const raizPacote = process.env.WWEBJS_PACKAGE_ROOT ||
   path.join(process.cwd(), 'node_modules', 'whatsapp-web.js');
 const packageJsonPath = path.join(raizPacote, 'package.json');
 const puppeteerUtilPath = path.join(raizPacote, 'src', 'util', 'Puppeteer.js');
-const MARCADOR = 'WWEBJS_BINDING_RACE_PATCH';
+const clientPath = path.join(raizPacote, 'src', 'Client.js');
+const MARCADOR_BINDING = 'WWEBJS_BINDING_RACE_PATCH';
+const MARCADOR_INJECT = 'WWEBJS_INJECT_NAVIGATION_PATCH';
 
-if (!fs.existsSync(packageJsonPath) || !fs.existsSync(puppeteerUtilPath)) {
+if (!fs.existsSync(packageJsonPath) || !fs.existsSync(puppeteerUtilPath) || !fs.existsSync(clientPath)) {
   throw new Error('[PATCH-WWEBJS] Instalação do whatsapp-web.js não encontrada.');
 }
 
@@ -16,15 +18,11 @@ if (pacote.version !== '1.34.7') {
   throw new Error(`[PATCH-WWEBJS] Versão inesperada: ${pacote.version}. Esperada: 1.34.7.`);
 }
 
-const atual = fs.readFileSync(puppeteerUtilPath, 'utf8');
-if (atual.includes(MARCADOR)) {
-  console.log('[PATCH-WWEBJS] Correção idempotente de bindings já aplicada.');
-  process.exit(0);
-}
+const utilAtual = fs.readFileSync(puppeteerUtilPath, 'utf8');
+if (!utilAtual.includes(MARCADOR_BINDING)) {
+  const utilCorrigido = `'use strict';
 
-const corrigido = `'use strict';
-
-// ${MARCADOR}
+// ${MARCADOR_BINDING}
 async function exposeFunctionIfAbsent(page, name, fn) {
   const existeNaPagina = await page.evaluate(nome => typeof window[nome] === 'function', name);
   if (existeNaPagina) return;
@@ -45,5 +43,39 @@ async function exposeFunctionIfAbsent(page, name, fn) {
 module.exports = { exposeFunctionIfAbsent };
 `;
 
-fs.writeFileSync(puppeteerUtilPath, corrigido, 'utf8');
-console.log('[PATCH-WWEBJS] Corrida de registro de bindings corrigida.');
+  fs.writeFileSync(puppeteerUtilPath, utilCorrigido, 'utf8');
+  console.log('[PATCH-WWEBJS] Corrida de registro de bindings corrigida.');
+} else {
+  console.log('[PATCH-WWEBJS] Correção idempotente de bindings já aplicada.');
+}
+
+let clientAtual = fs.readFileSync(clientPath, 'utf8');
+if (!clientAtual.includes(MARCADOR_INJECT)) {
+  const ancora = "        await this.inject();\n        this.pupPage.on('framenavigated'";
+  if (!clientAtual.includes(ancora)) {
+    throw new Error('[PATCH-WWEBJS] Ponto de injeção esperado não encontrado em Client.js.');
+  }
+
+  const blocoCorrigido = `        // ${MARCADOR_INJECT}
+        for (let tentativaInject = 1; tentativaInject <= 3; tentativaInject += 1) {
+            try {
+                await this.inject();
+                break;
+            } catch (erro) {
+                const mensagem = String(erro?.message || erro || '');
+                const contextoDestruido =
+                    mensagem.includes('Execution context was destroyed') ||
+                    mensagem.includes('Cannot find context with specified id');
+
+                if (!contextoDestruido || tentativaInject >= 3) throw erro;
+                await new Promise(resolve => setTimeout(resolve, 1000 * tentativaInject));
+            }
+        }
+        this.pupPage.on('framenavigated'`;
+
+  clientAtual = clientAtual.replace(ancora, blocoCorrigido);
+  fs.writeFileSync(clientPath, clientAtual, 'utf8');
+  console.log('[PATCH-WWEBJS] Navegação durante injeção agora possui retentativa interna.');
+} else {
+  console.log('[PATCH-WWEBJS] Retentativa interna de injeção já aplicada.');
+}

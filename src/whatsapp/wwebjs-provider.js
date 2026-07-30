@@ -125,6 +125,7 @@ function criarProvider(options = {}) {
         '--disable-software-rasterizer',
         '--no-first-run',
         '--no-zygote',
+        '--single-process',
         '--disable-extensions',
         '--disable-site-isolation-trials',
         '--renderer-process-limit=1',

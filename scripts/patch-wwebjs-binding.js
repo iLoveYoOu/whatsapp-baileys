@@ -51,27 +51,30 @@ module.exports = { exposeFunctionIfAbsent };
 
 let clientAtual = fs.readFileSync(clientPath, 'utf8');
 if (!clientAtual.includes(MARCADOR_INJECT)) {
-  const ancora = "        await this.inject();\n        this.pupPage.on('framenavigated'";
-  if (!clientAtual.includes(ancora)) {
+  const ancora = /^([ \t]*)await this\.inject\(\);\r?\n\1this\.pupPage\.on\(['"]framenavigated['"]/m;
+  const correspondencia = clientAtual.match(ancora);
+  if (!correspondencia) {
     throw new Error('[PATCH-WWEBJS] Ponto de injeção esperado não encontrado em Client.js.');
   }
 
-  const blocoCorrigido = `        // ${MARCADOR_INJECT}
-        for (let tentativaInject = 1; tentativaInject <= 3; tentativaInject += 1) {
-            try {
-                await this.inject();
-                break;
-            } catch (erro) {
-                const mensagem = String(erro?.message || erro || '');
-                const contextoDestruido =
-                    mensagem.includes('Execution context was destroyed') ||
-                    mensagem.includes('Cannot find context with specified id');
+  const indentacao = correspondencia[1];
+  const interno = `${indentacao}    `;
+  const blocoCorrigido = `${indentacao}// ${MARCADOR_INJECT}
+${indentacao}for (let tentativaInject = 1; tentativaInject <= 3; tentativaInject += 1) {
+${interno}try {
+${interno}    await this.inject();
+${interno}    break;
+${interno}} catch (erro) {
+${interno}    const mensagem = String(erro?.message || erro || '');
+${interno}    const contextoDestruido =
+${interno}        mensagem.includes('Execution context was destroyed') ||
+${interno}        mensagem.includes('Cannot find context with specified id');
 
-                if (!contextoDestruido || tentativaInject >= 3) throw erro;
-                await new Promise(resolve => setTimeout(resolve, 1000 * tentativaInject));
-            }
-        }
-        this.pupPage.on('framenavigated'`;
+${interno}    if (!contextoDestruido || tentativaInject >= 3) throw erro;
+${interno}    await new Promise(resolve => setTimeout(resolve, 1000 * tentativaInject));
+${interno}}
+${indentacao}}
+${indentacao}this.pupPage.on('framenavigated'`;
 
   clientAtual = clientAtual.replace(ancora, blocoCorrigido);
   fs.writeFileSync(clientPath, clientAtual, 'utf8');

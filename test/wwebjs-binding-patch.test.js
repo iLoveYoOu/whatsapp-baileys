@@ -17,7 +17,7 @@ test('aplica patches de binding e injeção de forma idempotente', () => {
     fs.writeFileSync(utilPath, 'module.exports = {};');
     fs.writeFileSync(
       clientPath,
-      "class Client { async initialize() {\n        await this.inject();\n        this.pupPage.on('framenavigated', () => {});\n} }"
+      "class Client { async initialize() {\r\n\tawait this.inject();\r\n\tthis.pupPage.on(\"framenavigated\", () => {});\r\n} }"
     );
 
     const executar = () => spawnSync(process.execPath, [patchPath], {

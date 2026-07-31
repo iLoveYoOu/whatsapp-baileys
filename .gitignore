@@ -13,3 +13,6 @@ relatorio-utf8*.txt
 corrigir-*.js
 instalar-*.js
 sanear-*.js
+.wwebjs_auth/
+.wwebjs_auth-backup/
+.wwebjs_cache/

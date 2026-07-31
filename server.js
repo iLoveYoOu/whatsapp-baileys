@@ -4,6 +4,15 @@ const fs = require('fs');
 const https = require('https');
 const axios = require('axios');
 const crypto = require('crypto');
+const WHATSAPP_PROVIDER_CONFIGURADO = String(
+  process.env.WHATSAPP_PROVIDER || 'wppconnect'
+).toLowerCase();
+// A antiga configuração "wwebjs" migra automaticamente para o provider novo.
+// O motor anterior permanece acessível apenas para rollback explícito.
+const WHATSAPP_PROVIDER =
+  WHATSAPP_PROVIDER_CONFIGURADO === 'wwebjs'
+    ? 'wppconnect'
+    : WHATSAPP_PROVIDER_CONFIGURADO;
 const {
   msgPixRecebido
 } = require('./src/ui');
@@ -11,7 +20,6 @@ const {
 const express = require('express');
 const QRCode = require('qrcode');
 const pino = require('pino');
-const { google } = require('googleapis');
 
 const {
   default: makeWASocket,
@@ -20,7 +28,10 @@ const {
   fetchLatestBaileysVersion,
   getContentType,
   downloadContentFromMessage
-} = require('@whiskeysockets/baileys');
+} = (WHATSAPP_PROVIDER === 'baileys' ? require('@whiskeysockets/baileys') : require('./src/whatsapp/baileys-compat'));
+
+let wwebjsProvider = null;
+let wppconnectProvider = null;
 
 const app = express();
 app.use(express.json({ limit: '20mb' }));
@@ -615,7 +626,22 @@ function dividirBlocos(texto) {
   return partes.length ? partes : [String(texto || '')];
 }
 
-function authSheets() {
+let googleAccessToken = '';
+let googleAccessTokenExpiraEm = 0;
+
+function base64Url(valor) {
+  return Buffer.from(valor)
+    .toString('base64')
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
+}
+
+async function obterGoogleAccessToken() {
+  if (googleAccessToken && Date.now() < googleAccessTokenExpiraEm) {
+    return googleAccessToken;
+  }
+
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   let key = process.env.GOOGLE_PRIVATE_KEY;
 
@@ -624,14 +650,73 @@ function authSheets() {
   }
 
   key = key.replace(/\\n/g, '\n');
+  const agora = Math.floor(Date.now() / 1000);
+  const header = base64Url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+  const payload = base64Url(JSON.stringify({
+    iss: email,
+    scope: 'https://www.googleapis.com/auth/spreadsheets',
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: agora,
+    exp: agora + 3600
+  }));
+  const unsigned = `${header}.${payload}`;
+  const signature = crypto
+    .sign('RSA-SHA256', Buffer.from(unsigned), key)
+    .toString('base64')
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
 
-  const auth = new google.auth.JWT({
-    email,
-    key,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets']
+  const body = new URLSearchParams({
+    grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+    assertion: `${unsigned}.${signature}`
+  });
+  const response = await axios.post('https://oauth2.googleapis.com/token', body.toString(), {
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
   });
 
-  return google.sheets({ version: 'v4', auth });
+  googleAccessToken = response.data.access_token;
+  googleAccessTokenExpiraEm = Date.now() + (Number(response.data.expires_in || 3600) - 60) * 1000;
+  return googleAccessToken;
+}
+
+async function googleSheetsRequest(method, caminho, { params, data } = {}) {
+  const token = await obterGoogleAccessToken();
+  return axios({
+    method,
+    url: `https://sheets.googleapis.com/v4/${caminho}`,
+    params,
+    data,
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+function authSheets() {
+  return {
+    spreadsheets: {
+      get: ({ spreadsheetId }) =>
+        googleSheetsRequest('GET', `spreadsheets/${encodeURIComponent(spreadsheetId)}`),
+      batchUpdate: ({ spreadsheetId, requestBody }) =>
+        googleSheetsRequest(
+          'POST',
+          `spreadsheets/${encodeURIComponent(spreadsheetId)}:batchUpdate`,
+          { data: requestBody }
+        ),
+      values: {
+        get: ({ spreadsheetId, range }) =>
+          googleSheetsRequest(
+            'GET',
+            `spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(range)}`
+          ),
+        update: ({ spreadsheetId, range, valueInputOption, requestBody }) =>
+          googleSheetsRequest(
+            'PUT',
+            `spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(range)}`,
+            { params: { valueInputOption }, data: requestBody }
+          )
+      }
+    }
+  };
 }
 
 async function garantirAba(sheets, aba) {
@@ -1182,6 +1267,42 @@ Limite: 2 fotos por banca`
 
     return true;
   }
+
+  // Consulta sem alteração de dados: funciona também fora do contexto admin.
+  // Inclusão e remoção continuam protegidas pela validação abaixo.
+  if (comando === '/listblacklist') {
+    const lista = carregarBlacklist();
+
+    if (!lista.length) {
+      await sock.sendMessage(remetente, {
+        text: '✅ A blacklist está vazia.'
+      });
+
+      return true;
+    }
+
+    const linhas = lista.map((item, index) => {
+      const data = item.data
+        ? new Date(item.data).toLocaleDateString('pt-BR', {
+            timeZone: 'America/Sao_Paulo'
+          })
+        : 'Sem data';
+
+      return `${index + 1}. ${item.nome}\n   Data: ${data}`;
+    });
+
+    await sock.sendMessage(remetente, {
+      text:
+`🚫 BLACKLIST PIX
+
+${linhas.join('\n\n')}
+
+Total: ${lista.length}`
+    });
+
+    return true;
+  }
+
   if (!isAdmin) return false;
 
   if (comando.startsWith('/consultarid')) {
@@ -1394,39 +1515,6 @@ Limite: 2 fotos por banca`
 👤 ${nome}
 
 Novos Pix com esse nome receberão alerta automático.`
-    });
-
-    return true;
-  }
-
-  if (comando === '/listblacklist') {
-    const lista = carregarBlacklist();
-
-    if (!lista.length) {
-      await sock.sendMessage(remetente, {
-        text: '✅ A blacklist está vazia.'
-      });
-
-      return true;
-    }
-
-    const linhas = lista.map((item, index) => {
-      const data = item.data
-        ? new Date(item.data).toLocaleDateString('pt-BR', {
-            timeZone: 'America/Sao_Paulo'
-          })
-        : 'Sem data';
-
-      return `${index + 1}. ${item.nome}\n   Data: ${data}`;
-    });
-
-    await sock.sendMessage(remetente, {
-      text:
-`🚫 BLACKLIST PIX
-
-${linhas.join('\n\n')}
-
-Total: ${lista.length}`
     });
 
     return true;
@@ -2110,7 +2198,11 @@ async function processarFotoOperador(msg, remetente) {
     return true;
   }
 
-  const buffer = await baixarImagem(msg.message);
+  const buffer = msg._wppRaw && wppconnectProvider
+    ? await wppconnectProvider.downloadMedia(msg._wppRaw)
+    : msg._wwebjsRaw && wwebjsProvider
+      ? await wwebjsProvider.downloadMedia(msg._wwebjsRaw)
+      : await baixarImagem(msg.message);
 
   if (banca.mensagemOriginal?.message) {
     await sock.sendMessage(
@@ -2138,7 +2230,7 @@ async function processarFotoOperador(msg, remetente) {
 }
 
 /* WHATSAPP */
-async function conectarWhatsApp() {
+async function conectarWhatsAppBaileys() {
   await carregarBlacklistRemota();
   const { state, saveCreds } =
     await useMultiFileAuthState('./auth');
@@ -2197,8 +2289,10 @@ async function conectarWhatsApp() {
         const remetente = msg.key.remoteJid;
         const autorJid = autorDaMensagem(msg);
         const autorNome = nomeDaMensagem(msg, autorJid);
-        const isAdmin = await mensagemDeAdmin(msg);
         const texto = textoDaMensagem(msg.message);
+        const isAdmin = String(texto || '').trim().startsWith('/')
+          ? await mensagemDeAdmin(msg)
+          : false;
         const messageId = msg.key.id || '';
 
         const comandoProcessado = await entrarNaFila(() =>
@@ -2268,6 +2362,184 @@ async function conectarWhatsApp() {
       }
     }
   });
+}
+
+async function processarMensagemEntrada(msg) {
+  try {
+    if (!msg?.message) return;
+
+    const remetente = msg.key.remoteJid;
+    const autorJid = autorDaMensagem(msg);
+    const autorNome = nomeDaMensagem(msg, autorJid);
+    const texto = textoDaMensagem(msg.message);
+    const isAdmin = String(texto || '').trim().startsWith('/')
+      ? await mensagemDeAdmin(msg)
+      : false;
+    const messageId = msg.key.id || '';
+
+    const comandoProcessado = await entrarNaFila(() =>
+      processarComandos(msg, texto, remetente, isAdmin, autorJid, autorNome)
+    );
+    if (comandoProcessado) return;
+
+    const fotoProcessada = await entrarNaFila(() =>
+      processarFotoOperador(msg, remetente)
+    );
+    if (fotoProcessada) return;
+
+    if (msg.key.fromMe) return;
+    if (!texto) return;
+
+    if (ARTAUTO_ENABLED) {
+      entrarNaFila(() => artautoProcessarMensagem(msg, texto, remetente, messageId));
+    }
+
+    await entrarNaFila(() => salvarNaPlanilha({ texto, messageId }));
+  } catch (err) {
+    console.error('[WHATSAPP] Erro ao processar mensagem:', err);
+  }
+}
+
+async function conectarWhatsAppWwebjs() {
+  const { criarProvider: criarWwebjsProvider } = require('./src/whatsapp/wwebjs-provider');
+  await carregarBlacklistRemota();
+  console.log('[WWEBJS] Inicializando com a sessão .wwebjs_auth existente...');
+  status = 'inicializando_wwebjs';
+  let recuperacaoLogoutTimer = null;
+
+  const cancelarRecuperacaoLogout = () => {
+    if (!recuperacaoLogoutTimer) return;
+    clearTimeout(recuperacaoLogoutTimer);
+    recuperacaoLogoutTimer = null;
+  };
+
+  wwebjsProvider = criarWwebjsProvider({
+    headless: String(process.env.WWEBJS_HEADLESS || (process.env.RENDER ? 'true' : 'false')).toLowerCase() === 'true'
+  });
+  sock = wwebjsProvider;
+
+  wwebjsProvider.on('qr', qr => {
+    cancelarRecuperacaoLogout();
+    qrAtual = qr;
+    status = 'aguardando_qr';
+    console.log('[WWEBJS] QR disponível em /qr. A sessão existente não foi apagada.');
+  });
+  wwebjsProvider.on('authenticated', () => {
+    cancelarRecuperacaoLogout();
+    qrAtual = '';
+    status = 'autenticado';
+    console.log('[WWEBJS] Sessão autenticada.');
+  });
+  wwebjsProvider.on('loading_screen', (percentual, mensagem) => {
+    const memoriaMb = Math.round(process.memoryUsage().rss / 1024 / 1024);
+    if (Number(percentual) >= 99) qrAtual = '';
+    status = 'sincronizando';
+    console.log(`[WWEBJS] Sincronizando: ${percentual}% ${mensagem || ''} (RSS: ${memoriaMb} MB)`);
+  });
+  wwebjsProvider.on('change_state', estado => {
+    console.log('[WWEBJS] Estado interno:', estado);
+  });
+  wwebjsProvider.on('ready', () => {
+    cancelarRecuperacaoLogout();
+    qrAtual = '';
+    status = 'conectado';
+    console.log('[WWEBJS] WhatsApp conectado e pronto.');
+  });
+  wwebjsProvider.on('disconnected', motivo => {
+    console.error('[WWEBJS] Desconectado:', motivo);
+
+    if (String(motivo).toUpperCase() === 'LOGOUT') {
+      qrAtual = '';
+      status = 'preparando_novo_qr';
+      console.warn('[WWEBJS] Logout confirmado. O LocalAuth invalidou a sessão; aguardando novo QR em /qr.');
+
+      cancelarRecuperacaoLogout();
+      recuperacaoLogoutTimer = setTimeout(async () => {
+        if (status !== 'preparando_novo_qr') return;
+
+        console.error('[WWEBJS] Novo QR não apareceu após logout. Reiniciando o processo sem apagar a sessão.');
+        try {
+          await wwebjsProvider.destroy();
+        } catch (erro) {
+          console.warn('[WWEBJS] Falha ao encerrar cliente antes do reinício:', erro.message);
+        }
+        process.exit(1);
+      }, Number(process.env.WWEBJS_LOGOUT_QR_TIMEOUT_MS) || 45000);
+      return;
+    }
+
+    status = 'desconectado';
+  });
+  wwebjsProvider.on('auth_failure', motivo => {
+    status = 'falha_autenticacao';
+    console.error('[WWEBJS] Falha de autenticação:', motivo);
+  });
+  wwebjsProvider.on('error', erro => {
+    status = 'erro_wwebjs';
+    console.error('[WWEBJS] Erro:', erro);
+  });
+  wwebjsProvider.on('message', msg => processarMensagemEntrada(msg));
+
+  await wwebjsProvider.initialize();
+}
+
+async function conectarWhatsAppWppconnect() {
+  const { criarProvider: criarWppconnectProvider } = require('./src/whatsapp/wppconnect-provider');
+  await carregarBlacklistRemota();
+  console.log('[WPPCONNECT] Inicializando provider limpo com sessão persistente...');
+  status = 'inicializando_wppconnect';
+
+  wppconnectProvider = criarWppconnectProvider({
+    headless: String(process.env.WPPCONNECT_HEADLESS || (process.env.RENDER ? 'true' : 'false')).toLowerCase() === 'true'
+  });
+  sock = wppconnectProvider;
+
+  wppconnectProvider.on('qr', qr => {
+    qrAtual = qr;
+    status = 'aguardando_qr';
+    console.log('[WPPCONNECT] QR disponível em /qr.');
+  });
+  wppconnectProvider.on('authenticated', () => {
+    qrAtual = '';
+    status = 'autenticado';
+    console.log('[WPPCONNECT] Sessão autenticada.');
+  });
+  wppconnectProvider.on('loading_screen', (percentual, mensagem) => {
+    status = 'sincronizando';
+    console.log(`[WPPCONNECT] Sincronizando: ${percentual}% ${mensagem || ''}`);
+  });
+  wppconnectProvider.on('change_state', estado => console.log('[WPPCONNECT] Estado:', estado));
+  wppconnectProvider.on('ready', () => {
+    qrAtual = '';
+    status = 'conectado';
+    console.log('[WPPCONNECT] WhatsApp conectado e pronto.');
+  });
+  wppconnectProvider.on('disconnected', motivo => {
+    status = 'desconectado';
+    console.error('[WPPCONNECT] Desconectado:', motivo);
+  });
+  wppconnectProvider.on('auth_failure', motivo => {
+    status = 'falha_autenticacao';
+    console.error('[WPPCONNECT] Falha de autenticação:', motivo);
+  });
+  wppconnectProvider.on('error', erro => {
+    status = 'erro_wppconnect';
+    console.error('[WPPCONNECT] Erro:', erro);
+  });
+  wppconnectProvider.on('message', msg => processarMensagemEntrada(msg));
+
+  await wppconnectProvider.initialize();
+}
+
+async function conectarWhatsApp() {
+  console.log('[WHATSAPP] Provider selecionado:', WHATSAPP_PROVIDER);
+  if (WHATSAPP_PROVIDER === 'wppconnect') {
+    return conectarWhatsAppWppconnect();
+  }
+  if (WHATSAPP_PROVIDER === 'wwebjs-legacy') {
+    return conectarWhatsAppWwebjs();
+  }
+  return conectarWhatsAppBaileys();
 }
 
 function numeroPixBR(valor) {
@@ -2358,7 +2630,7 @@ app.post('/pix/:cliente', async (req, res) => {
       });
     }
 
-    if (!sock) {
+    if (!sock || status !== 'conectado') {
       return res.status(503).json({
         sucesso: false,
         erro: 'WhatsApp não conectado'
@@ -2437,6 +2709,7 @@ app.get('/status', (req, res) => {
 });
 
 app.get('/qr', async (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
   if (!qrAtual) {
     return res.send(`
       <h3>Status: ${status}</h3>
@@ -2447,15 +2720,36 @@ app.get('/qr', async (req, res) => {
   const img = await QRCode.toDataURL(qrAtual);
 
   res.send(`
-    <h2>Escaneie o QR</h2>
+    <meta http-equiv="refresh" content="10">\n    <h2>Escaneie o QR</h2>
     <img src="${img}" style="width:320px;height:320px" />
   `);
 });
 
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
-  conectarWhatsApp();
+  conectarWhatsApp().catch(erro => {
+    status = 'erro_wwebjs';
+    console.error('[WHATSAPP] Falha fatal ao inicializar:', erro);
+    setTimeout(() => process.exit(1), 1000);
+  });
 });
+
+let encerrandoWhatsApp = false;
+async function encerrarWhatsApp(sinal) {
+  if (encerrandoWhatsApp) return;
+  encerrandoWhatsApp = true;
+  console.log(`[WHATSAPP] Encerramento gracioso (${sinal}); persistindo sessão...`);
+  try {
+    if (wppconnectProvider) await wppconnectProvider.destroy();
+    if (wwebjsProvider) await wwebjsProvider.destroy();
+  } catch (erro) {
+    console.warn('[WHATSAPP] Falha ao encerrar provider:', erro.message);
+  } finally {
+    process.exit(0);
+  }
+}
+process.once('SIGTERM', () => encerrarWhatsApp('SIGTERM'));
+process.once('SIGINT', () => encerrarWhatsApp('SIGINT'));
 
 /* ARTAUTO - IntegraÃ§Ã£o Supabase */
 const artautoLock = { polling: false };

@@ -86,8 +86,15 @@ function criarProvider(options = {}) {
   let readyEmitted = false;
   let pollingTimer = null;
   let pollingRunning = false;
+  let filaEnvios = Promise.resolve();
   const iniciadoEm = Math.floor(Date.now() / 1000);
   const mensagensProcessadas = new Map();
+
+  function enfileirarEnvio(tarefa) {
+    const execucao = filaEnvios.then(tarefa, tarefa);
+    filaEnvios = execucao.catch(() => {});
+    return execucao;
+  }
 
   fs.mkdirSync(tokenPath, { recursive: true });
   fs.mkdirSync(userDataDir, { recursive: true });
@@ -249,41 +256,43 @@ function criarProvider(options = {}) {
   }
 
   async function sendMessage(jid, payload = {}, optionsEnvio = {}) {
-    if (!client) throw new Error('WPPConnect ainda não está pronto');
-    const destino = jidParaWpp(jid);
-    const quotedMsg = optionsEnvio?.quoted?.key?.id;
-    const opcoes = quotedMsg ? { quotedMsg } : {};
-    let enviado;
+    return enfileirarEnvio(async () => {
+      if (!client) throw new Error('WPPConnect ainda não está pronto');
+      const destino = jidParaWpp(jid);
+      const quotedMsg = optionsEnvio?.quoted?.key?.id;
+      const opcoes = quotedMsg ? { quotedMsg } : {};
+      let enviado;
 
-    if (payload.text !== undefined) {
-      enviado = await client.sendText(destino, String(payload.text), opcoes);
-    } else {
-      const buffer = Buffer.isBuffer(payload.image || payload.video || payload.document)
-        ? (payload.image || payload.video || payload.document)
-        : Buffer.from(payload.image || payload.video || payload.document || '');
-      const mime = payload.mimetype ||
-        (payload.image ? 'image/png' : payload.video ? 'video/mp4' : 'application/octet-stream');
-      const filename = payload.fileName ||
-        (payload.image ? 'imagem.png' : payload.video ? 'video.mp4' : 'documento.bin');
-      const base64 = `data:${mime};base64,${buffer.toString('base64')}`;
+      if (payload.text !== undefined) {
+        enviado = await client.sendText(destino, String(payload.text), opcoes);
+      } else {
+        const buffer = Buffer.isBuffer(payload.image || payload.video || payload.document)
+          ? (payload.image || payload.video || payload.document)
+          : Buffer.from(payload.image || payload.video || payload.document || '');
+        const mime = payload.mimetype ||
+          (payload.image ? 'image/png' : payload.video ? 'video/mp4' : 'application/octet-stream');
+        const filename = payload.fileName ||
+          (payload.image ? 'imagem.png' : payload.video ? 'video.mp4' : 'documento.bin');
+        const base64 = `data:${mime};base64,${buffer.toString('base64')}`;
 
-      enviado = await client.sendFile(destino, base64, {
-        type: payload.image ? 'image' : payload.video ? 'video' : 'document',
-        filename,
-        mimetype: mime,
-        caption: payload.caption || '',
-        ...opcoes
-      });
-    }
+        enviado = await client.sendFile(destino, base64, {
+          type: payload.image ? 'image' : payload.video ? 'video' : 'document',
+          filename,
+          mimetype: mime,
+          caption: payload.caption || '',
+          ...opcoes
+        });
+      }
 
-    return {
-      key: {
-        id: idSerializado(enviado?.id || enviado),
-        remoteJid: jidParaBaileys(destino),
-        fromMe: true
-      },
-      _wppRaw: enviado
-    };
+      return {
+        key: {
+          id: idSerializado(enviado?.id || enviado),
+          remoteJid: jidParaBaileys(destino),
+          fromMe: true
+        },
+        _wppRaw: enviado
+      };
+    });
   }
 
   async function groupMetadata(jid) {

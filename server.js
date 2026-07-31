@@ -2289,8 +2289,10 @@ async function conectarWhatsAppBaileys() {
         const remetente = msg.key.remoteJid;
         const autorJid = autorDaMensagem(msg);
         const autorNome = nomeDaMensagem(msg, autorJid);
-        const isAdmin = await mensagemDeAdmin(msg);
         const texto = textoDaMensagem(msg.message);
+        const isAdmin = String(texto || '').trim().startsWith('/')
+          ? await mensagemDeAdmin(msg)
+          : false;
         const messageId = msg.key.id || '';
 
         const comandoProcessado = await entrarNaFila(() =>
@@ -2369,8 +2371,10 @@ async function processarMensagemEntrada(msg) {
     const remetente = msg.key.remoteJid;
     const autorJid = autorDaMensagem(msg);
     const autorNome = nomeDaMensagem(msg, autorJid);
-    const isAdmin = await mensagemDeAdmin(msg);
     const texto = textoDaMensagem(msg.message);
+    const isAdmin = String(texto || '').trim().startsWith('/')
+      ? await mensagemDeAdmin(msg)
+      : false;
     const messageId = msg.key.id || '';
 
     const comandoProcessado = await entrarNaFila(() =>

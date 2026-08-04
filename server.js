@@ -2434,10 +2434,12 @@ app.post('/pix/:cliente', async (req, res) => {
     const existente = idExterno
       ? historicoPixRecebidos.find(item => item.cliente === cliente && item.idExterno === idExterno)
       : null;
+    let registro = existente;
 
     if (!existente) {
-      historicoPixRecebidos.push({
+      registro = {
         idExterno,
+        enviadoWhatsapp: false,
         data: dataPixBR(),
         hora: horaPixBR(),
         cliente,
@@ -2445,7 +2447,8 @@ app.post('/pix/:cliente', async (req, res) => {
         valor,
         valorNumero: numeroPixBR(valor),
         texto: [titulo, mensagem].filter(Boolean).join('\n')
-      });
+      };
+      historicoPixRecebidos.push(registro);
       if (historicoPixRecebidos.length > MAX_HISTORICO_PIX_RECEBIDOS) {
         historicoPixRecebidos.splice(
           0,
@@ -2454,7 +2457,7 @@ app.post('/pix/:cliente', async (req, res) => {
       }
     }
 
-    if (existente) {
+    if (existente?.enviadoWhatsapp) {
       return res.status(200).json({
         sucesso: true,
         cliente,
@@ -2463,7 +2466,7 @@ app.post('/pix/:cliente', async (req, res) => {
       });
     }
 
-    if (!sock) {
+    if (!sock?.user?.id) {
       return res.status(503).json({
         sucesso: false,
         erro: 'WhatsApp não conectado',
@@ -2481,6 +2484,7 @@ app.post('/pix/:cliente', async (req, res) => {
     await sock.sendMessage(destino, {
       text: mensagemPix
     });
+    registro.enviadoWhatsapp = true;
 
     return res.status(200).json({
       sucesso: true,

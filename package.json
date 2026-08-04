@@ -4,7 +4,6 @@
   "description": "WhatsApp Baileys gratuito integrado ao Google Sheets",
   "main": "server.js",
   "scripts": {
-    "prestart": "node patch-baileys-reconnect.js",
     "start": "node server.js"
   },
   "engines": {
@@ -12,7 +11,7 @@
   },
   "dependencies": {
     "@hapi/boom": "latest",
-    "@whiskeysockets/baileys": "6.7.22",
+    "@whiskeysockets/baileys": "7.0.0-rc14",
     "axios": "^1.17.0",
     "dotenv": "latest",
     "express": "latest",

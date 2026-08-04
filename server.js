@@ -18,6 +18,7 @@ const {
   useMultiFileAuthState,
   DisconnectReason,
   fetchLatestBaileysVersion,
+  Browsers,
   getContentType,
   downloadContentFromMessage
 } = require('@whiskeysockets/baileys');
@@ -57,6 +58,11 @@ const EMOJI = Object.freeze({
 let sock = null;
 let qrAtual = '';
 let status = 'iniciando';
+let conectandoWhatsApp = false;
+let timerReconexao = null;
+let tentativaReconexao = 0;
+const MAX_TENTATIVAS_RECONEXAO = 8;
+const PAUSA_SEGURANCA_MS = 15 * 60 * 1000;
 
 let fila = Promise.resolve();
 
@@ -2191,25 +2197,46 @@ async function processarFotoOperador(msg, remetente) {
 
 /* WHATSAPP */
 async function conectarWhatsApp() {
-  await carregarBlacklistRemota();
-  const { state, saveCreds } =
-    await useMultiFileAuthState('./auth');
+  if (conectandoWhatsApp) {
+    console.log('[WA] Trava ativa: conexão já em andamento.');
+    return;
+  }
 
-  const { version } =
-    await fetchLatestBaileysVersion();
+  conectandoWhatsApp = true;
+  status = 'conectando';
 
-  sock = makeWASocket({
-    version,
-    auth: state,
-    logger: pino({ level: 'silent' }),
-    printQRInTerminal: false,
-    browser: ['Sheets Bot', 'Chrome', '1.0'],
-    markOnlineOnConnect: false,
-    syncFullHistory: false,
-    keepAliveIntervalMs: 30000
-  });
+  try {
+    await carregarBlacklistRemota();
+    const { state, saveCreds } =
+      await useMultiFileAuthState('./auth');
 
-  sock.ev.on('creds.update', saveCreds);
+    const { version } =
+      await fetchLatestBaileysVersion();
+    console.log('[WA] Versão de protocolo dinâmica:', version.join('.'));
+
+    sock = makeWASocket({
+      version,
+      auth: state,
+      logger: pino({ level: 'silent' }),
+      printQRInTerminal: false,
+      browser: Browsers.ubuntu('Sheets Bot'),
+      markOnlineOnConnect: false,
+      syncFullHistory: false,
+      keepAliveIntervalMs: 30000
+    });
+
+    sock.ev.on('creds.update', saveCreds);
+  } catch (err) {
+    conectandoWhatsApp = false;
+    status = 'erro_conexao';
+    console.error('[WA] Erro ao iniciar conexão:', err?.stack || err);
+    if (timerReconexao) clearTimeout(timerReconexao);
+    timerReconexao = setTimeout(() => {
+      timerReconexao = null;
+      conectarWhatsApp().catch(console.error);
+    }, 60000);
+    return;
+  }
 
   sock.ev.on('connection.update', async (update) => {
     const { connection, lastDisconnect, qr } = update;
@@ -2223,21 +2250,65 @@ async function conectarWhatsApp() {
     if (connection === 'open') {
       status = 'conectado';
       qrAtual = '';
-      console.log('WhatsApp conectado');
+      tentativaReconexao = 0;
+      conectandoWhatsApp = false;
+      if (timerReconexao) {
+        clearTimeout(timerReconexao);
+        timerReconexao = null;
+      }
+      console.log('[WA] WhatsApp conectado');
     }
 
     if (connection === 'close') {
-      const shouldReconnect =
-        lastDisconnect?.error?.output?.statusCode !==
-        DisconnectReason.loggedOut;
+      conectandoWhatsApp = false;
 
-      status = shouldReconnect ? 'reconectando' : 'deslogado';
+      const erro = lastDisconnect?.error;
+      const statusCode = erro?.output?.statusCode || erro?.statusCode || erro?.data?.statusCode || null;
+      const motivo = erro?.output?.payload?.message || erro?.message || erro?.data?.message || 'motivo não informado';
+      const loggedOut = statusCode === DisconnectReason.loggedOut;
 
-      console.log('Conexão fechada. Reconectar:', shouldReconnect);
+      console.error('[WA] Conexão fechada', {
+        statusCode,
+        motivo,
+        tentativa: tentativaReconexao + 1,
+        loggedOut,
+        erro: erro?.stack || String(erro || '')
+      });
 
-      if (shouldReconnect) {
-        setTimeout(() => conectarWhatsApp(), 5000);
+      if (loggedOut) {
+        status = 'deslogado';
+        qrAtual = '';
+        tentativaReconexao = 0;
+        console.error('[WA] Sessão deslogada. Um novo QR será necessário.');
+        return;
       }
+
+      tentativaReconexao += 1;
+
+      if (tentativaReconexao >= MAX_TENTATIVAS_RECONEXAO) {
+        status = 'pausa_seguranca';
+        console.error('[WA] Trava ativada após', tentativaReconexao, 'falhas. Pausa de 15 minutos.');
+        tentativaReconexao = 0;
+        if (timerReconexao) clearTimeout(timerReconexao);
+        timerReconexao = setTimeout(() => {
+          timerReconexao = null;
+          conectarWhatsApp().catch(console.error);
+        }, PAUSA_SEGURANCA_MS);
+        return;
+      }
+
+      status = 'reconectando';
+      const atraso = Math.min(5000 * tentativaReconexao, 60000);
+      if (timerReconexao) clearTimeout(timerReconexao);
+      timerReconexao = setTimeout(() => {
+        timerReconexao = null;
+        conectarWhatsApp().catch(err => {
+          conectandoWhatsApp = false;
+          console.error('[WA] Falha ao reconectar:', err);
+        });
+      }, atraso);
+
+      console.log('[WA] Nova tentativa em', atraso, 'ms');
     }
   });
 

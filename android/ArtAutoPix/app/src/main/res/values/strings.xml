@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ArtAuto Pix</string>
+    <string name="status_authorized">● Monitoramento autorizado</string>
+    <string name="status_pending">○ Acesso às notificações pendente</string>
+    <string name="status_format">%1$s\nDestino: Lucão\nPendentes de envio: %2$d\n\n%3$s</string>
+</resources>

@@ -93,12 +93,30 @@ function nomeDaMensagem(msg, jid) {
   return numero ? `Operador ${numero.slice(-4)}` : 'Operador';
 }
 
+function ehJidDoBot(jid) {
+  if (!jid || !sock?.user) return false;
+
+  const candidatos = [sock.user.id, sock.user.lid]
+    .filter(Boolean)
+    .map(valor => String(valor));
+  const jidInformado = String(jid);
+
+  if (candidatos.includes(jidInformado)) return true;
+
+  const numeroInformado = numeroLimpoJid(jidInformado);
+  return Boolean(numeroInformado) && candidatos.some(candidato =>
+    numeroLimpoJid(candidato) === numeroInformado
+  );
+}
+
 function normalizarFilaOperadores() {
   const antes = operadoresOnline.length;
   const vistos = new Set();
   operadoresOnline = operadoresOnline.filter(jid => {
     if (!jid || typeof jid !== 'string') return false;
     if (!jid.endsWith('@s.whatsapp.net') && !jid.endsWith('@lid')) return false;
+    // A conta conectada serve o fluxo; ela nunca pode receber banca como operador.
+    if (ehJidDoBot(jid)) return false;
     if (vistos.has(jid)) return false;
     vistos.add(jid);
     return true;
@@ -1168,6 +1186,13 @@ Limite: 2 fotos por banca`
   if (comando === '/opon') {
     if (!autorJid) {
       await sock.sendMessage(remetente, { text: '⚠️ Não consegui identificar seu número.' });
+      return true;
+    }
+
+    if (msg?.key?.fromMe || ehJidDoBot(autorJid)) {
+      // Limpa tambem uma entrada antiga, criada antes desta protecao.
+      sairOperadorDaFila(autorJid);
+      console.warn('Comando /opon ignorado para a conta do bot:', autorJid);
       return true;
     }
 
@@ -2340,6 +2365,9 @@ async function conectarWhatsApp() {
     for (const msg of messages) {
       try {
         if (!msg.message) continue;
+        // O bot nunca processa comandos, fotos ou bancas enviados por ele mesmo.
+        // Esta trava precisa vir antes de processarComandos, inclusive para /opon.
+        if (msg.key?.fromMe) continue;
 
         const remetente = msg.key.remoteJid;
         const autorJid = autorDaMensagem(msg);
@@ -2360,7 +2388,6 @@ async function conectarWhatsApp() {
 
         if (fotoProcessada) continue;
 
-        if (msg.key.fromMe) continue;
         if (!texto) continue;
 
         if (ARTAUTO_ENABLED) {

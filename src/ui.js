@@ -62,8 +62,8 @@ R$ ${moeda(valor)}
 ${E.FOTO} Você já pode enviar a FOTO 2/2.`;
 }
 
-function msgPixRecebido(nome, valor, suspeito = false) {
-  if (suspeito) {
+function msgPixRecebido(nome, valor, motivoBlacklist = '') {
+  if (motivoBlacklist) {
     return `━━━━━━━━━━━━━━━━━━━━━━
 
 ${E.PIX} PIX RECEBIDO
@@ -74,7 +74,7 @@ ${E.DINHEIRO} R$ ${valor}
 ${E.VERMELHO} STATUS: SUSPEITO
 
 Motivo:
-• Nome presente na lista de fraude.
+• ${motivoBlacklist}
 
 Ação recomendada:
 ${E.ERRO} Não liberar saldo

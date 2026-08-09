@@ -435,7 +435,7 @@ async function salvarBlacklist(lista) {
 }
 
 function extrairNomePix(texto) {
-  const match = String(texto || '').match(/👤\s*(.+)/i);
+  const match = String(texto || '').match(/👤\s*([^\r\n]+)/i);
   return match ? String(match[1]).trim() : '';
 }
 
@@ -1407,17 +1407,38 @@ Limite: 2 fotos por banca`
   }
 
 
-  if (comando === '/addblacklist') {
+  if (/^\/addblacklist(?:\s|$)/.test(comando)) {
     const quoted = getQuotedInfo(msg.message);
     const textoRespondido = textoDaQuotedMessage(quoted.quotedMessage);
-    const nome = extrairNomePix(textoRespondido);
+    const nomeRespondido = extrairNomePix(textoRespondido);
 
-    if (!quoted.stanzaId || !nome) {
+    const argumentos = String(texto || '')
+      .trim()
+      .replace(/^\/addblacklist\s*/i, '')
+      .trim();
+
+    let nome = nomeRespondido;
+    let motivo = argumentos;
+
+    if (!nomeRespondido) {
+      const separador = argumentos.indexOf('|');
+
+      if (separador >= 0) {
+        nome = argumentos.slice(0, separador).trim();
+        motivo = argumentos.slice(separador + 1).trim();
+      }
+    }
+
+    if (!nome || !motivo) {
       await sock.sendMessage(remetente, {
         text:
-`⚠️ Responda a uma mensagem de PIX RECEBIDO com:
+`⚠️ Use uma destas formas:
 
-/addblacklist`
+1. Responda ao PIX com:
+/addblacklist Motivo
+
+2. Digite:
+/addblacklist Nome Completo | Motivo`
       });
 
       return true;
@@ -1438,7 +1459,7 @@ Limite: 2 fotos por banca`
 
     lista.push({
       nome,
-      motivo: 'Fraude',
+      motivo,
       data: new Date().toISOString(),
       adicionadoPor: remetente
     });
@@ -1450,6 +1471,7 @@ Limite: 2 fotos por banca`
 `✅ ADICIONADO Ã€ BLACKLIST
 
 👤 ${nome}
+📝 Motivo: ${motivo}
 
 Novos Pix com esse nome receberão alerta automático.`
     });
@@ -1475,7 +1497,9 @@ Novos Pix com esse nome receberão alerta automático.`
           })
         : 'Sem data';
 
-      return `${index + 1}. ${item.nome}\n   Data: ${data}`;
+      const motivo = item.motivo || 'Não informado';
+
+      return `${index + 1}. ${item.nome}\n   Motivo: ${motivo}\n   Data: ${data}`;
     });
 
     await sock.sendMessage(remetente, {
@@ -2549,7 +2573,7 @@ app.post('/pix/:cliente', async (req, res) => {
     const mensagemPix = msgPixRecebido(
       nome,
       valor,
-      Boolean(registroFraude)
+      registroFraude?.motivo || ''
     );
 
     await sock.sendMessage(destino, {

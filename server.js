@@ -70,6 +70,7 @@ function entrarNaFila(tarefa) {
 let operadoresOnline = [];
 let indiceOperador = 0;
 const operadoresInfo = new Map();
+const nomesContatos = new Map();
 const inicioProcesso = Date.now();
 
 function autorDaMensagem(msg) {
@@ -81,10 +82,27 @@ function autorDaMensagem(msg) {
 }
 
 function nomeDaMensagem(msg, jid) {
+  const nomeContato = String(nomesContatos.get(jid) || '').trim();
+  if (nomeContato) return nomeContato;
   const nome = String(msg?.pushName || '').trim();
   if (nome) return nome;
   const numero = String(jid || '').split('@')[0];
   return numero ? `Operador ${numero.slice(-4)}` : 'Operador';
+}
+
+function guardarNomeContato(contato) {
+  const nome = String(
+    contato?.name ||
+    contato?.notify ||
+    contato?.verifiedName ||
+    ''
+  ).trim();
+
+  if (!nome) return;
+
+  [contato?.id, contato?.lid, contato?.phoneNumber]
+    .filter(Boolean)
+    .forEach(jid => nomesContatos.set(String(jid), nome));
 }
 
 function ehJidDoBot(jid) {
@@ -1125,7 +1143,7 @@ Limite: 2 fotos por banca`
     return true;
   }
 
-  if (comando === '/opon') {
+  if (/^\/opon(?:\s|$)/.test(comando)) {
     if (!autorJid) {
       await sock.sendMessage(remetente, { text: '⚠️ Não consegui identificar seu número.' });
       return true;
@@ -1138,11 +1156,16 @@ Limite: 2 fotos por banca`
       return true;
     }
 
-    const resultado = entrarOperadorNaFila(autorJid, autorNome);
+    const nomeInformado = String(texto || '')
+      .trim()
+      .replace(/^\/opon\s*/i, '')
+      .trim();
+    const nomeOperador = nomeInformado || autorNome;
+    const resultado = entrarOperadorNaFila(autorJid, nomeOperador);
 
     await sock.sendMessage(remetente, {
       text:
-`✅ ${autorNome} está online.
+`✅ ${nomeOperador} está online.
 
 📍 Posição na fila: ${resultado.posicao}
 👥 Operadores online: ${resultado.total}`
@@ -1207,7 +1230,9 @@ Limite: 2 fotos por banca`
 
     return true;
   }
-  if (!isAdmin) return false;
+  const operadorOnline = operadoresOnline.includes(autorJid);
+  const pixDeOperador = comando.startsWith('/pix ') && operadorOnline;
+  if (!isAdmin && !pixDeOperador) return false;
 
   if (comando.startsWith('/consultarid')) {
     const digitado = String(texto || '')
@@ -1435,7 +1460,7 @@ Limite: 2 fotos por banca`
 
     await sock.sendMessage(remetente, {
       text:
-`✅ ADICIONADO Ã€ BLACKLIST
+`✅ ADICIONADO À BLACKLIST
 
 👤 ${nome}
 📝 Motivo: ${motivo}
@@ -2281,6 +2306,14 @@ async function conectarWhatsApp() {
         console.error('Erro ao processar mensagem:', err);
       }
     }
+  });
+
+  sock.ev.on('contacts.upsert', contatos => {
+    for (const contato of contatos || []) guardarNomeContato(contato);
+  });
+
+  sock.ev.on('contacts.update', contatos => {
+    for (const contato of contatos || []) guardarNomeContato(contato);
   });
 
   sock.ev.on('messages.update', async (updates) => {

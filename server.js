@@ -167,7 +167,7 @@ let totalPixGerados = 0;
 let totalPixPagos = 0;
 
 const DESTINOS_PIX = {
-  arthur: '5511961501252@s.whatsapp.net',
+  arthur: '120363401755742181@g.us',
   lucao: '120363426172706411@g.us',
   gordao: '5524999205460@s.whatsapp.net'
 };

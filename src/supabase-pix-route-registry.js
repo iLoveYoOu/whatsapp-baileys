@@ -86,6 +86,20 @@ class SupabasePixRouteRegistry {
     return { id: rows[0].id, slug, state };
   }
 
+  async setRouteDestination(slug, destinationRef) {
+    slug = normalizeSlug(slug);
+    if (!String(destinationRef || '').trim()) throw new Error('DESTINATION_REQUIRED');
+    const encrypted = encryptDestination(destinationRef, this.key);
+    const rows = await this.rows(`/artauto_pix_routes?slug=eq.${encodeURIComponent(slug)}`, {
+      method: 'patch', headers: { Prefer: 'return=representation' }, data: {
+        destination_ciphertext: encrypted.ciphertext, destination_iv: encrypted.iv,
+        destination_tag: encrypted.tag, updated_at: new Date().toISOString()
+      }
+    });
+    if (!rows.length) throw new Error('ROUTE_NOT_FOUND');
+    return { id: rows[0].id, slug };
+  }
+
   async issueEnrollment(slug, { ttlMs = 15 * 60_000, maxUses = 1 } = {}) {
     slug = normalizeSlug(slug);
     if (!Number.isSafeInteger(ttlMs) || ttlMs < 60_000 || ttlMs > 86_400_000) throw new Error('INVALID_TTL');

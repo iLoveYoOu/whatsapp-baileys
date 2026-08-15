@@ -59,6 +59,16 @@ class PixRouteRegistry {
     return { id: route.id, slug, state };
   }
 
+  setRouteDestination(slug, destinationRef) {
+    slug = normalizeSlug(slug);
+    if (!String(destinationRef || '').trim()) throw new Error('DESTINATION_REQUIRED');
+    const route = this.routes.get(slug);
+    if (!route) throw new Error('ROUTE_NOT_FOUND');
+    route.destinationRef = String(destinationRef).trim();
+    this.record('route.destination_updated', 'route', route.id);
+    return { id: route.id, slug };
+  }
+
   issueEnrollment(slug, { ttlMs = 15 * 60_000, maxUses = 1 } = {}) {
     const route = this.routes.get(normalizeSlug(slug));
     if (!route || route.state !== 'active') throw new Error('ROUTE_NOT_ACTIVE');

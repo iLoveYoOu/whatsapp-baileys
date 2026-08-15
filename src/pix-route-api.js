@@ -141,6 +141,15 @@ function createPixRouteRouter({ registry, adminToken, adminUsername, adminPasswo
     }
   });
 
+  router.patch('/admin/routes/:slug/destination', admin, async (req, res) => {
+    try {
+      const route = await registry.setRouteDestination(req.params.slug, req.body?.destinationRef);
+      res.json({ ok: true, route });
+    } catch (error) {
+      res.status(errorStatus(error.message)).json({ ok: false, code: error.message });
+    }
+  });
+
   router.post('/admin/routes/:slug/enrollment-codes', admin, async (req, res) => {
     try {
       const enrollment = await registry.issueEnrollment(req.params.slug, req.body || {});

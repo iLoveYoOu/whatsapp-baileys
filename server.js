@@ -240,12 +240,12 @@ function paginaHistoricoPix(cliente) {
   <meta http-equiv="refresh" content="15">
   <title>Pix recebidos - ${escaparHtml(cliente)}</title>
   <style>
-    *{box-sizing:border-box}body{margin:0;background:#f3f5f7;color:#17212b;font:16px system-ui,-apple-system,sans-serif}
-    main{max-width:720px;margin:auto;padding:20px}header{display:flex;justify-content:space-between;align-items:end;gap:12px;margin-bottom:16px}
-    h1{font-size:24px;margin:0}.contador{color:#667085}.registro{background:#fff;border:1px solid #e4e7ec;border-radius:12px;padding:15px;margin-bottom:10px;box-shadow:0 1px 2px #1018280d}.registro.suspeito{background:#fff5f5;border:2px solid #e12d39;box-shadow:0 1px 5px #e12d3940}.selo-suspeito{display:inline-block;margin-top:10px;padding:5px 9px;border-radius:6px;background:#b42318;color:#fff;font-size:13px;font-weight:800;letter-spacing:.2px}
-    .topo{display:flex;justify-content:space-between;gap:12px}.topo strong{color:#08783e;font-size:21px}.topo time{color:#667085;font-size:14px}
-    .nome{font-weight:650;margin-top:8px}.texto{color:#475467;margin-top:5px;white-space:pre-wrap;overflow-wrap:anywhere}.vazio{background:#fff;padding:24px;border-radius:12px;text-align:center;color:#667085}
-    footer{color:#98a2b3;font-size:12px;text-align:center;margin-top:18px}@media(max-width:520px){main{padding:14px}.topo{align-items:flex-start;flex-direction:column}.topo time{order:-1}}
+    *{box-sizing:border-box}body{margin:0;background:#05070a;color:#edf2f7;font:12px/1.28 system-ui,-apple-system,sans-serif}
+    main{max-width:720px;margin:auto;padding:8px}header{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin:2px 0 8px}
+    h1{font-size:18px;margin:0;letter-spacing:.2px}.contador{color:#8d9aa8;font-size:11px;white-space:nowrap}.registro{background:#111820;border:1px solid #263442;border-radius:7px;padding:8px 9px;margin-bottom:6px;box-shadow:0 1px 2px #0008}.registro.suspeito{background:#210b10;border:2px solid #ed3d48;box-shadow:0 1px 6px #ed3d4855}.selo-suspeito{display:inline-block;margin-top:5px;padding:3px 6px;border-radius:4px;background:#c12732;color:#fff;font-size:10px;font-weight:850;letter-spacing:.15px}
+    .topo{display:flex;justify-content:space-between;align-items:baseline;gap:8px}.topo strong{color:#20d67b;font-size:16px}.suspeito .topo strong{color:#ff777f}.topo time{color:#94a4b5;font-size:10px;white-space:nowrap}
+    .nome{font-size:12px;font-weight:700;margin-top:4px;color:#f8fafc}.texto{color:#b5c1cd;font-size:10px;margin-top:3px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.25;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}.vazio{background:#111820;padding:18px;border-radius:7px;text-align:center;color:#94a4b5}
+    footer{color:#657487;font-size:9px;text-align:center;margin-top:8px}@media(max-width:300px){main{padding:6px}h1{font-size:16px}.registro{padding:7px}.topo strong{font-size:15px}}
   </style>
 </head>
 <body><main>

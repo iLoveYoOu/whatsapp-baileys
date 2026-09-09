@@ -220,11 +220,12 @@ function paginaHistoricoPix(cliente) {
 
   const linhas = itens.length
     ? itens.map(item => `
-      <article class="registro">
+      <article class="registro${item.suspeito ? ' suspeito' : ''}">
         <div class="topo">
           <strong>R$ ${escaparHtml(item.valor)}</strong>
           <time>${escaparHtml(item.data)} ${escaparHtml(item.hora)}</time>
         </div>
+        ${item.suspeito ? '<div class="selo-suspeito">🚨 SUSPEITO — NÃO LIBERAR</div>' : ''}
         <div class="nome">${escaparHtml(item.nome)}</div>
         <div class="texto">${escaparHtml(item.texto)}</div>
       </article>`).join('')
@@ -241,7 +242,7 @@ function paginaHistoricoPix(cliente) {
   <style>
     *{box-sizing:border-box}body{margin:0;background:#f3f5f7;color:#17212b;font:16px system-ui,-apple-system,sans-serif}
     main{max-width:720px;margin:auto;padding:20px}header{display:flex;justify-content:space-between;align-items:end;gap:12px;margin-bottom:16px}
-    h1{font-size:24px;margin:0}.contador{color:#667085}.registro{background:#fff;border:1px solid #e4e7ec;border-radius:12px;padding:15px;margin-bottom:10px;box-shadow:0 1px 2px #1018280d}
+    h1{font-size:24px;margin:0}.contador{color:#667085}.registro{background:#fff;border:1px solid #e4e7ec;border-radius:12px;padding:15px;margin-bottom:10px;box-shadow:0 1px 2px #1018280d}.registro.suspeito{background:#fff5f5;border:2px solid #e12d39;box-shadow:0 1px 5px #e12d3940}.selo-suspeito{display:inline-block;margin-top:10px;padding:5px 9px;border-radius:6px;background:#b42318;color:#fff;font-size:13px;font-weight:800;letter-spacing:.2px}
     .topo{display:flex;justify-content:space-between;gap:12px}.topo strong{color:#08783e;font-size:21px}.topo time{color:#667085;font-size:14px}
     .nome{font-weight:650;margin-top:8px}.texto{color:#475467;margin-top:5px;white-space:pre-wrap;overflow-wrap:anywhere}.vazio{background:#fff;padding:24px;border-radius:12px;text-align:center;color:#667085}
     footer{color:#98a2b3;font-size:12px;text-align:center;margin-top:18px}@media(max-width:520px){main{padding:14px}.topo{align-items:flex-start;flex-direction:column}.topo time{order:-1}}
@@ -2586,6 +2587,7 @@ app.post('/pix/:cliente', async (req, res) => {
       mensagem.match(/R\$\s*([\d.,]+)/i)?.[1]?.trim()
       || '0,00';
 
+    const registroFraude = buscarNaBlacklist(nome);
     const existente = idExterno
       ? historicoPixRecebidos.find(item => item.cliente === cliente && item.idExterno === idExterno)
       : null;
@@ -2601,6 +2603,7 @@ app.post('/pix/:cliente', async (req, res) => {
         nome,
         valor,
         valorNumero: numeroPixBR(valor),
+        suspeito: Boolean(registroFraude),
         texto: [titulo, mensagem].filter(Boolean).join('\n')
       };
       historicoPixRecebidos.push(registro);
@@ -2628,8 +2631,6 @@ app.post('/pix/:cliente', async (req, res) => {
         registrado: true
       });
     }
-    const registroFraude = buscarNaBlacklist(nome);
-
     const mensagemPix = msgPixRecebido(
       nome,
       valor,

@@ -227,6 +227,7 @@ function paginaHistoricoPix(cliente) {
         </div>
         ${item.suspeito ? '<div class="selo-suspeito">🚨 SUSPEITO — NÃO LIBERAR</div>' : ''}
         <div class="nome">${escaparHtml(item.nome)}</div>
+        ${item.suspeito ? `<div class="motivo-fraude"><b>Motivo:</b> ${escaparHtml(item.motivoFraude || 'Nome presente na blacklist.')}</div>` : ''}
         <div class="texto">${escaparHtml(item.texto)}</div>
       </article>`).join('')
     : '<p class="vazio">Nenhum Pix recebido nesta instância.</p>';
@@ -244,7 +245,7 @@ function paginaHistoricoPix(cliente) {
     main{max-width:720px;margin:auto;padding:8px}header{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin:2px 0 8px}
     h1{font-size:18px;margin:0;letter-spacing:.2px}.contador{color:#8d9aa8;font-size:11px;white-space:nowrap}.registro{background:#111820;border:1px solid #263442;border-radius:7px;padding:8px 9px;margin-bottom:6px;box-shadow:0 1px 2px #0008}.registro.suspeito{background:#210b10;border:2px solid #ed3d48;box-shadow:0 1px 6px #ed3d4855}.selo-suspeito{display:inline-block;margin-top:5px;padding:3px 6px;border-radius:4px;background:#c12732;color:#fff;font-size:10px;font-weight:850;letter-spacing:.15px}
     .topo{display:flex;justify-content:space-between;align-items:baseline;gap:8px}.topo strong{color:#20d67b;font-size:16px}.suspeito .topo strong{color:#ff777f}.topo time{color:#94a4b5;font-size:10px;white-space:nowrap}
-    .nome{font-size:12px;font-weight:700;margin-top:4px;color:#f8fafc}.texto{color:#b5c1cd;font-size:10px;margin-top:3px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.25;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}.vazio{background:#111820;padding:18px;border-radius:7px;text-align:center;color:#94a4b5}
+    .nome{font-size:12px;font-weight:700;margin-top:4px;color:#f8fafc}.motivo-fraude{margin-top:3px;color:#ffb4b9;font-size:10px;line-height:1.25}.texto{color:#b5c1cd;font-size:10px;margin-top:3px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.25;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}.vazio{background:#111820;padding:18px;border-radius:7px;text-align:center;color:#94a4b5}
     footer{color:#657487;font-size:9px;text-align:center;margin-top:8px}@media(max-width:300px){main{padding:6px}h1{font-size:16px}.registro{padding:7px}.topo strong{font-size:15px}}
   </style>
 </head>
@@ -2604,6 +2605,7 @@ app.post('/pix/:cliente', async (req, res) => {
         valor,
         valorNumero: numeroPixBR(valor),
         suspeito: Boolean(registroFraude),
+        motivoFraude: registroFraude?.motivo || '',
         texto: [titulo, mensagem].filter(Boolean).join('\n')
       };
       historicoPixRecebidos.push(registro);
